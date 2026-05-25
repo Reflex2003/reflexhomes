@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflex Homes - Advanced Rental Management System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- 1. THE ENTRY GATE (LOGIN & REGISTRATION) -->
+    <div id="authGate" class="view-panel">
+        <header>
+            <h1>🏠 Reflex Homes</h1>
+            <p>Premium Property Hunting for Kenyan Towns</p>
+        </header>
+
+        <div class="form-container">
+            <h2>Create an Account / Access Gate</h2>
+            
+            <div class="role-selector">
+                <label><input type="radio" name="userRole" value="seeker" checked> House Hunter</label>
+                <label><input type="radio" name="userRole" value="landlord"> Landlord</label>
+            </div>
+
+            <input type="text" id="userEmail" placeholder="Enter Your Email Address">
+            <input type="password" id="userPassword" placeholder="Enter Unique Password From Admin">
+            
+            <!-- PAYMENT CONTAINER BLOCK -->
+            <div class="payment-box">
+                <p>⚠️ New users must pay to unlock access credentials.</p>
+                
+                <div class="phone-capture-group" style="margin: 12px 0;">
+                    <label for="payerPhone" style="display:block; font-size:0.85rem; margin-bottom:5px; font-weight:bold; color:#555;">
+                        Your Safaricom M-Pesa Number:
+                    </label>
+                    <input type="text" id="payerPhone" placeholder="e.g., 0712345678" style="text-align: center; font-weight: bold; letter-spacing: 1px; margin: 0;">
+                </div>
+
+                <button class="btn-pay" id="payTriggerBtn">💰 Pay via M-Pesa Pochi</button>
+            </div>
+
+            <button class="btn-main" id="loginBtn">Enter Portal</button>
+        </div>
+
+        <!-- CUSTOMER CARE SHORTCUTS -->
+        <div class="customer-care">
+            <h3>Need Help? Contact Admin</h3>
+            <a href="tel:+254712345678" class="care-btn call">📞 Call Support</a>
+            <a href="sms:+254712345678?body=Hello%20Admin,%20I%20have%20made%20my%20payment..." class="care-btn sms">💬 Send SMS Text</a>
+        </div>
+    </div>
+
+    <!-- 2. THE SEEKER PORTAL (HOUSE HUNTING GRID) -->
+    <div id="seekerDashboard" class="view-panel hidden">
+        <div class="portal-header">
+            <h2>Welcome, House Hunter! 🔍</h2>
+            <button class="btn-logout">Log Out</button>
+        </div>
+        
+        <div class="filter-bar">
+            <input type="text" id="townSearch" placeholder="Search town or neighborhood (e.g. Nakuru, Eldoret)...">
+            <select id="waterFilter">
+                <option value="all">All Water Statuses</option>
+                <option value="Borehole">24/7 Borehole</option>
+                <option value="Rationed">City Water / Rationed</option>
+            </select>
+        </div>
+
+        <main class="property-grid" id="propertyGrid">
+            <!-- Dynamic House Cards will load here via JavaScript -->
+        </main>
+
+        <!-- FEEDBACK ENGINE FORM -->
+        <div class="feedback-section" style="background: white; padding: 20px; border-radius: 8px; margin-top: 30px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+            <h3>Leave Platform Feedback</h3>
+            <textarea id="feedbackText" placeholder="Tell the admin how your house hunting went..."></textarea>
+            <button id="submitFeedbackBtn" class="btn-main">Submit Feedback</button>
+        </div>
+    </div>
+
+    <!-- 3. THE SUPREME ADMIN DASHBOARD (DATA TABLES) -->
+    <div id="adminDashboard" class="view-panel hidden">
+        <div class="portal-header">
+            <h2>👑 Supreme Admin Command Center</h2>
+            <button class="btn-logout">Log Out</button>
+        </div>
+
+        <div class="admin-sections" style="display: grid; gap: 30px;">
+            <div>
+                <h3>Registered System Users</h3>
+                <div class="table-wrapper">
+                    <table id="userTable">
+                        <thead>
+                            <tr>
+                                <th>User Email</th>
+                                <th>Account Role</th>
+                                <th>Time Remaining</th>
+                                <th>Actions Panel</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            <!-- User database rows dynamically generate here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ADMIN REVIEWS LIST -->
+            <div>
+                <h3>Received User Feedback</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Feedback Message Log</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feedbackTableBody">
+                            <tr>
+                                <td style="color: #7f8c8d; text-align: center;">No feedback submitted yet.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. THE LANDLORD PORTAL (PROPERTY UPLOADER) -->
+    <div id="landlordDashboard" class="view-panel hidden">
+        <div class="portal-header">
+            <h2>🏠 Landlord Management Portal</h2>
+            <button class="btn-logout">Log Out</button>
+        </div>
+
+        <div class="form-container" style="max-width: 600px; margin: 20px auto;">
+            <h3>List a New Rental Unit</h3>
+            <p style="font-size: 0.85rem; color: #7f8c8d; margin-bottom: 15px;">Fill in the exact property specifications for Reflex Homes seekers.</p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div>
+                    <label style="font-size: 0.85rem; font-weight: bold;">Kenyan Town:</label>
+                    <input type="text" id="newTown" placeholder="e.g., Nakuru, Eldoret">
+                </div>
+                <div>
+                    <label style="font-size: 0.85rem; font-weight: bold;">Local Estate / Neighborhood:</label>
+                    <input type="text" id="newNeighborhood" placeholder="e.g., Milimani, Annex">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                <div>
+                    <label style="font-size: 0.85rem; font-weight: bold;">House Configuration / Type:</label>
+                    <select id="newHouseType">
+                        <option value="Bedsitter">Bedsitter</option>
+                        <option value="1 Bedroom">1 Bedroom</option>
+                        <option value="2 Bedroom">2 Bedroom</option>
+                        <option value="3 Bedroom Bungalow">3 Bedroom Bungalow</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.85rem; font-weight: bold;">Monthly Rent (Ksh):</label>
+                    <input type="text" id="newPrice" placeholder="e.g., 12000">
+                </div>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <label style="font-size: 0.85rem; font-weight: bold;">Water Availability Status:</label>
+                <select id="newWater">
+                    <option value="24/7 Borehole">💧 24/7 Borehole System</option>
+                    <option value="City Water / Rationed">🚰 City Water (Rationed)</option>
+                    <option value="Water Tanks / Reliable">🛢️ On-site Storage Tanks (Reliable)</option>
+                </select>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <label style="font-size: 0.85rem; font-weight: bold;">Google Maps Dropped Pin Link:</label>
+                <input type="text" id="newMapLink" placeholder="https://google.com...">
+            </div>
+
+            <!-- CHECKBOXES FOR MULTIPLE AMENITIES -->
+            <div style="margin-top: 15px; background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                <label style="font-size: 0.85rem; font-weight: bold; display: block; margin-bottom: 8px;">Select Included Amenities:</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
+                    <label><input type="checkbox" class="amenity-check" value="Hot Shower"> Instant Hot Shower</label>
+                    <label><input type="checkbox" class="amenity-check" value="Balcony"> Private Balcony</label>
+                    <label><input type="checkbox" class="amenity-check" value="Gated Compound"> Gated Compound / Security</label>
+                    <label><input type="checkbox" class="amenity-check" value="WiFi Available"> Token WiFi Access</label>
+                    <label><input type="checkbox" class="amenity-check" value="Tiled Floors"> Fully Tiled Floors</label>
+                    <label><input type="checkbox" class="amenity-check" value="Prepaid Meter"> Token Electricity Meter</label>
+                </div>
+            </div>
+
+            <button id="uploadHouseBtn" class="btn-main" style="background-color: #ff4500; margin-top: 20px;">🚀 Publish Listing Instantly</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
