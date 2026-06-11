@@ -177,6 +177,31 @@
                     </table>
                 </div>
             </div>
+
+            <!-- ADMIN CUSTOMER SUPPORT CENTER -->
+            <div id="adminSupportCenter" style="margin-top: 30px;">
+                <h3>💬 Customer Support Center</h3>
+                <div style="display: grid; grid-template-columns: 250px 1fr; gap: 20px; height: 500px; background: var(--card-bg); border-radius: var(--radius); overflow: hidden; border: 1px solid rgba(0,0,0,0.1);">
+                    <!-- Chat List (Left Sidebar) -->
+                    <div id="adminChatList" style="background: rgba(0,0,0,0.05); border-right: 1px solid rgba(0,0,0,0.1); overflow-y: auto;">
+                        <div style="padding: 15px; border-bottom: 1px solid rgba(0,0,0,0.1); font-weight: bold; font-size: 0.9rem; color: var(--text-muted);">Active Conversations</div>
+                        <div id="activeChatUsers" style="display: flex; flex-direction: column;"></div>
+                    </div>
+                    <!-- Chat Area (Main Window) -->
+                    <div id="adminChatArea" style="display: flex; flex-direction: column; position: relative;">
+                        <div id="adminChatHeader" style="padding: 15px; border-bottom: 1px solid rgba(0,0,0,0.1); font-weight: bold; background: var(--primary); color: white;">
+                            Select a user to start chatting
+                        </div>
+                        <div id="adminChatBody" style="flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;"></div>
+                        <div id="adminChatFooter" class="hidden" style="padding: 15px; border-top: 1px solid rgba(0,0,0,0.1);">
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="adminChatInput" placeholder="Type your reply..." style="margin:0;">
+                                <button id="sendAdminChatBtn" class="btn-main" style="width: auto; margin:0; padding: 0 20px;">Send</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

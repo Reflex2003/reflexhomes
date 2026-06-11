@@ -240,6 +240,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    const adminChatInput = document.getElementById('adminChatInput');
+    if (adminChatInput) {
+        adminChatInput.addEventListener('input', () => {
+            updateTypingStatus(true);
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => updateTypingStatus(false), 3000);
+        });
+    }
+
     async function renderAuditLogs() {
         const logBody = document.getElementById('auditLogTableBody');
         if (!logBody || sessionEmail !== 'ianmorgan107@gmail.com') return;
@@ -324,6 +333,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderAdminGlobalProperties();
             renderAdminPayments();
             updateTownDistributionChart();
+            initAdminSupportCenter();
             return;
         }
 
@@ -344,6 +354,71 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
     };
+
+    // --- ADMIN SUPPORT CENTER LOGIC ---
+    async function initAdminSupportCenter() {
+        const listContainer = document.getElementById('activeChatUsers');
+        if (!listContainer) return;
+
+        // Listen for all messages where the admin is a participant
+        const q = query(collection(db, "support_chats"), where("participants", "array-contains", "ianmorgan107@gmail.com"));
+        
+        onSnapshot(q, (snapshot) => {
+            const messages = snapshot.docs.map(d => d.data());
+            
+            // Extract unique users (seekers) chatting with admin
+            const usersInChat = [...new Set(messages.flatMap(m => m.participants).filter(email => email !== 'ianmorgan107@gmail.com'))];
+            
+            listContainer.innerHTML = usersInChat.map(email => `
+                <div class="admin-chat-user-item ${activeAdminChatUser === email ? 'active' : ''}" 
+                     onclick="openAdminChat('${email}')">
+                    ${email.split('@')[0]}
+                </div>
+            `).join('');
+        });
+    }
+
+    window.openAdminChat = (userEmail) => {
+        activeAdminChatUser = userEmail;
+        document.getElementById('adminChatHeader').textContent = `Chatting with: ${userEmail}`;
+        document.getElementById('adminChatFooter').classList.remove('hidden');
+        renderAdminChatMessages(userEmail);
+    };
+
+    function renderAdminChatMessages(userEmail) {
+        const body = document.getElementById('adminChatBody');
+        const q = query(collection(db, "support_chats"), where("participants", "array-contains", userEmail));
+        
+        onSnapshot(q, (snapshot) => {
+            if (activeAdminChatUser !== userEmail) return;
+            
+            const messages = snapshot.docs
+                .map(d => d.data())
+                .filter(m => m.participants.includes('ianmorgan107@gmail.com'))
+                .sort((a, b) => a.timestamp - b.timestamp);
+
+            body.innerHTML = messages.map(m => `
+                <div class="msg-bubble ${m.sender === 'ianmorgan107@gmail.com' ? 'msg-seeker' : 'msg-admin'}">
+                    ${m.text}
+                </div>
+            `).join('');
+            body.scrollTop = body.scrollHeight;
+        });
+    }
+
+    document.getElementById('sendAdminChatBtn')?.addEventListener('click', async () => {
+        const text = adminChatInput.value.trim();
+        if (!text || !activeAdminChatUser) return;
+
+        await addDoc(collection(db, "support_chats"), {
+            text: text,
+            sender: 'ianmorgan107@gmail.com',
+            participants: [activeAdminChatUser, 'ianmorgan107@gmail.com'],
+            timestamp: serverTimestamp()
+        });
+        adminChatInput.value = '';
+        updateTypingStatus(false);
+    });
 
     // --- CHAT WINDOW LOGIC ---
     window.toggleChat = (show) => {

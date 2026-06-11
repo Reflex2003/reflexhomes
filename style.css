@@ -356,3 +356,17 @@ body.dark-mode tr:hover { background-color: rgba(255, 255, 255, 0.05); }
     color: #1e293b;
     border-bottom-left-radius: 2px;
 }
+
+.admin-chat-user-item {
+    padding: 12px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    transition: background 0.2s;
+    font-size: 0.85rem;
+    color: var(--text-main);
+}
+
+.admin-chat-user-item.active, .admin-chat-user-item:hover {
+    background: rgba(0, 128, 128, 0.1);
+    border-left: 4px solid var(--primary);
+}
