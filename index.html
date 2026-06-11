@@ -55,7 +55,10 @@
     <div id="seekerDashboard" class="view-panel hidden">
         <div class="portal-header">
             <h2>Welcome, House Hunter! 🔍</h2>
-            <button class="btn-logout">Log Out</button>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="switchToView('admin')" class="admin-only-btn btn-main hidden" style="width: auto; padding: 8px 15px; margin-top: 0;">Back to Admin</button>
+                <button class="btn-logout">Log Out</button>
+            </div>
         </div>
         
         <div class="filter-bar">
@@ -83,7 +86,11 @@
     <div id="adminDashboard" class="view-panel hidden">
         <div class="portal-header">
             <h2>👑 Supreme Admin Command Center</h2>
-            <button class="btn-logout">Log Out</button>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="switchToView('seeker')" class="btn-main" style="width: auto; padding: 8px 15px; margin-top: 0; background-color: #0d9488;">View Seeker View</button>
+                <button onclick="switchToView('landlord')" class="btn-main" style="width: auto; padding: 8px 15px; margin-top: 0; background-color: #0d9488;">View Landlord View</button>
+                <button class="btn-logout">Log Out</button>
+            </div>
         </div>
 
         <div class="admin-sections" style="display: grid; gap: 30px;">
@@ -131,7 +138,10 @@
     <div id="landlordDashboard" class="view-panel hidden">
         <div class="portal-header">
             <h2>🏠 Landlord Management Portal</h2>
-            <button class="btn-logout">Log Out</button>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="switchToView('admin')" class="admin-only-btn btn-main hidden" style="width: auto; padding: 8px 15px; margin-top: 0;">Back to Admin</button>
+                <button class="btn-logout">Log Out</button>
+            </div>
         </div>
 
         <div class="form-container" style="max-width: 600px; margin: 20px auto;">
