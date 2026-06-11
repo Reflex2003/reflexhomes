@@ -12,7 +12,6 @@ const firebaseConfig = {
 // Initialize Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, serverTimestamp, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, serverTimestamp, onSnapshot, setDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
@@ -50,11 +49,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rememberMeCheck = document.getElementById('rememberMe');
     let droppedFile = null; // Store drag-and-drop file
     const adminNotificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    const adminTypingSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3'); // Bubble pop sound
+    let wasAdminTyping = false;
     let seekerLocation = null;
     let radiusSearchActive = false;
     let selectedSchoolCoords = null;
     let sessionEmail = ""; // Persistent session tracker
     let isMaintenanceMode = false;
+    let typingTimer;
     const sessionId = Math.random().toString(36).substring(7);
 
     // --- REAL-TIME VISITOR COUNTER (Heartbeat) ---
@@ -92,6 +94,70 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn("Presence cleanup failed", e);
         }
     };
+
+    // --- REAL-TIME TYPING INDICATOR LOGIC ---
+    async function updateTypingStatus(isTyping) {
+        if (!sessionEmail) return;
+        try {
+            const typingRef = doc(db, "typing_presence", sessionEmail);
+            await setDoc(typingRef, {
+                email: sessionEmail,
+                isTyping: isTyping,
+                lastUpdated: serverTimestamp()
+            }, { merge: true });
+        } catch (e) {
+            console.warn("Typing status update failed", e);
+        }
+    }
+
+    // Listen for others typing
+    onSnapshot(collection(db, "typing_presence"), (snapshot) => {
+        const indicator = document.getElementById('typingIndicator');
+        const chatIndicator = document.getElementById('chatTypingIndicator');
+        if (!indicator) return;
+
+        const typers = snapshot.docs
+            .map(d => d.data())
+            .filter(d => d.isTyping && d.email !== sessionEmail);
+
+        // --- ADMIN TYPING SOUND LOGIC ---
+        const adminTyper = typers.find(d => d.email === 'ianmorgan107@gmail.com');
+        if (adminTyper && !wasAdminTyping && sessionEmail !== 'ianmorgan107@gmail.com') {
+            adminTypingSound.play().catch(e => console.warn("Audio play blocked", e));
+        }
+        wasAdminTyping = !!adminTyper;
+
+        if (typers.length > 0) {
+            const name = typers[0].email.split('@')[0];
+            indicator.textContent = `✍️ ${name} is typing...`;
+            indicator.classList.remove('hidden');
+            if (chatIndicator && adminTyper) chatIndicator.classList.remove('hidden');
+        } else {
+            indicator.classList.add('hidden');
+            if (chatIndicator) chatIndicator.classList.add('hidden');
+        }
+    });
+
+    // Attach listener to feedback input
+    const feedbackInput = document.getElementById('feedbackText');
+    if (feedbackInput) {
+        feedbackInput.addEventListener('input', () => {
+            updateTypingStatus(true);
+            
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => updateTypingStatus(false), 3000);
+        });
+    }
+
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        chatInput.addEventListener('input', () => {
+            updateTypingStatus(true);
+            
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => updateTypingStatus(false), 3000);
+        });
+    }
 
     // --- EMERGENCY PANIC / MAINTENANCE LOGIC ---
     const maintenanceRef = doc(db, "system", "maintenance");
@@ -272,11 +338,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (targetRole === 'seeker') {
             if (!seekerDashboard) return;
             seekerDashboard.classList.remove('hidden');
+            document.getElementById('chatWidget')?.classList.remove('hidden');
             renderSampleProperties();
             updateStatusBadges('seeker', isAdmin); // admin sees as Premium
             return;
         }
     };
+
+    // --- CHAT WINDOW LOGIC ---
+    window.toggleChat = (show) => {
+        const win = document.getElementById('chatWindow');
+        if (show === undefined) win.classList.toggle('hidden');
+        else show ? win.classList.remove('hidden') : win.classList.add('hidden');
+        if (!win.classList.contains('hidden')) renderMessages();
+    };
+
+    document.getElementById('chatToggleBtn')?.addEventListener('click', () => toggleChat());
+
+    async function renderMessages() {
+        if (!sessionEmail) return;
+        const chatBody = document.getElementById('chatBody');
+        // Fetch messages related to this user and the admin
+        const q = query(collection(db, "support_chats"), where("participants", "array-contains", sessionEmail));
+        
+        onSnapshot(q, (snapshot) => {
+            const messages = snapshot.docs
+                .map(d => d.data())
+                .sort((a, b) => a.timestamp - b.timestamp);
+
+            chatBody.innerHTML = messages.map(m => `
+                <div class="msg-bubble ${m.sender === sessionEmail ? 'msg-seeker' : 'msg-admin'}">
+                    ${m.text}
+                </div>
+            `).join('');
+            chatBody.scrollTop = chatBody.scrollHeight;
+        });
+    }
+
+    document.getElementById('sendChatBtn')?.addEventListener('click', async () => {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if (!text || !sessionEmail) return;
+
+        await addDoc(collection(db, "support_chats"), {
+            text: text,
+            sender: sessionEmail,
+            participants: [sessionEmail, 'ianmorgan107@gmail.com'],
+            timestamp: serverTimestamp()
+        });
+
+        input.value = '';
+        updateTypingStatus(false);
+    });
 
     // --- MODERN IMAGE CAROUSEL LOGIC ---
     window.initCarousel = (images) => {
@@ -1430,30 +1543,9 @@ function clearActiveSession() {
             const lat = document.getElementById('newLat').value.trim();
             const lng = document.getElementById('newLng').value.trim();
             
-            let imageUrl = '';
-            const file = droppedFile || imageInput.files[0];
             let imageUrls = [];
             const files = Array.from(imageInput.files);
 
-            // Handle Image Upload with Progress
-            if (file) {
-                const progressBar = document.getElementById('uploadProgressBar');
-                const progressContainer = document.getElementById('uploadProgressContainer');
-                progressContainer.classList.remove('hidden');
-
-                const compressedBlob = await compressImage(file);
-                const storageRef = ref(storage, `properties/${Date.now()}_${file.name}`);
-                const uploadTask = uploadBytesResumable(storageRef, compressedBlob);
-
-                imageUrl = await new Promise((resolve, reject) => {
-                    uploadTask.on('state_changed', 
-                        (snapshot) => {
-                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                            progressBar.style.width = progress + '%';
-                        }, 
-                        (error) => reject(error), 
-                        async () => resolve(await getDownloadURL(uploadTask.snapshot.ref))
-                    );
             if (files.length > 0) {
                 const uploadPromises = files.map(async (file) => {
                     const compressedBlob = await compressImage(file);
@@ -1466,7 +1558,6 @@ function clearActiveSession() {
                         });
                     });
                 });
-                progressContainer.classList.add('hidden');
                 imageUrls = await Promise.all(uploadPromises);
             }
             
@@ -1479,7 +1570,6 @@ function clearActiveSession() {
                     price: parseInt(price), water, 
                     distance: parseInt(distance) || 0,
                     landlordPhone,
-                    imageUrl: imageUrl || properties.find(p => p.id === editingPropertyId)?.imageUrl || '',
                     imageUrls: imageUrls.length > 0 ? imageUrls : properties.find(p => p.id === editingPropertyId)?.imageUrls || [],
                     lat,
                     lng
@@ -1497,7 +1587,6 @@ function clearActiveSession() {
                     isVerified: false,
                     distance: parseInt(distance) || 0,
                     landlordPhone,
-                    imageUrl,
                     imageUrls,
                     lat,
                     lng
@@ -1977,7 +2066,6 @@ function clearActiveSession() {
 
             if (h) {
                 const location = h.area || (h.neighborhood + ', ' + h.town);
-                const imageHtml = h.imageUrl ? `<img src="${h.imageUrl}" class="modal-property-img" alt="${h.type}">` : '';
                 // Render Carousel or Single Image
                 let carouselHtml = '';
                 if (h.imageUrls && h.imageUrls.length > 0) {
@@ -1994,8 +2082,6 @@ function clearActiveSession() {
 
                 modalContent.innerHTML = `
                     <div style="padding: 10px 0;">
-                    <div style="padding: 0 0 10px 0;">
-                        ${imageHtml}
                         ${carouselHtml}
                         <p><strong>Property Type:</strong> ${h.type}</p>
                         <p><strong>Location:</strong> ${location}</p>
