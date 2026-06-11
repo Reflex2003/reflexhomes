@@ -8,6 +8,11 @@
 </head>
 <body>
 
+    <!-- GLOBAL THEME TOGGLE -->
+    <button class="theme-toggle-btn" title="Toggle Dark/Light Mode" style="position: fixed; bottom: 20px; right: 20px; z-index: 10000; width: 50px; height: 50px; border-radius: 50%; border: none; background: var(--primary); color: white; font-size: 1.5rem; cursor: pointer; box-shadow: var(--shadow-md); display: flex; align-items: center; justify-content: center; transition: transform 0.2s;">
+        🌓
+    </button>
+
     <!-- 1. THE ENTRY GATE (LOGIN & REGISTRATION) -->
     <div id="authGate" class="view-panel">
         <header>
@@ -21,6 +26,7 @@
             <div class="role-selector">
                 <label><input type="radio" name="userRole" value="seeker" checked> House Hunter</label>
                 <label><input type="radio" name="userRole" value="landlord"> Landlord</label>
+                <label id="adminRoleWrapper" class="hidden"><input type="radio" name="userRole" value="admin"> Admin</label>
             </div>
 
             <input type="text" id="userEmail" placeholder="Enter Your Email Address">
@@ -86,14 +92,27 @@
     <div id="adminDashboard" class="view-panel hidden">
         <div class="portal-header">
             <h2>👑 Supreme Admin Command Center</h2>
-            <div style="display: flex; gap: 10px;">
-                <button onclick="switchToView('seeker')" class="btn-main" style="width: auto; padding: 8px 15px; margin-top: 0; background-color: #0d9488;">View Seeker View</button>
-                <button onclick="switchToView('landlord')" class="btn-main" style="width: auto; padding: 8px 15px; margin-top: 0; background-color: #0d9488;">View Landlord View</button>
-                <button class="btn-logout">Log Out</button>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items:center; justify-content:flex-end;">
+                <button onclick="switchToView('seeker')" class="btn-main" type="button" style="width: auto; padding: 8px 15px; margin-top: 0; background-color: var(--secondary);">Switch to Seeker View</button>
+                <button onclick="switchToView('landlord')" class="btn-main" type="button" style="width: auto; padding: 8px 15px; margin-top: 0; background-color: var(--secondary);">Switch to Landlord View</button>
+                <button id="panicBtn" class="btn-logout" type="button" style="background-color: #991b1b; font-weight: bold; border: 2px solid white;">🚨 ACTIVATE PANIC MODE</button>
+                <button class="btn-logout" type="button">Log Out</button>
             </div>
         </div>
 
         <div class="admin-sections" style="display: grid; gap: 30px;">
+            <!-- Modern Stats Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                <div class="form-container" style="margin: 0; text-align: center; padding: 20px;">
+                    <h4 style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Total Revenue</h4>
+                    <p id="statRevenue" style="font-size: 1.8rem; font-weight: 800; color: var(--success);">Ksh 0</p>
+                </div>
+                <div class="form-container" style="margin: 0; text-align: center; padding: 20px;">
+                    <h4 style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Active Users</h4>
+                    <p id="statUsers" style="font-size: 1.8rem; font-weight: 800; color: var(--primary);">0</p>
+                </div>
+            </div>
+
             <div>
                 <h3>Registered System Users</h3>
                 <div class="table-wrapper">
@@ -204,6 +223,18 @@
 
             <button id="uploadHouseBtn" class="btn-main" style="background-color: #ff4500; margin-top: 20px;">🚀 Publish Listing Instantly</button>
         </div>
+    </div>
+
+    <!-- EMERGENCY MAINTENANCE OVERLAY -->
+    <div id="maintenanceOverlay" class="view-panel hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;">
+        <div style="font-size: 5rem; margin-bottom: 20px;">🚧</div>
+        <h1 style="color: #008080; font-size: 2.5rem;">System Under Maintenance</h1>
+        <p id="adminMaintenanceNote" style="max-width: 600px; margin-top: 15px; font-size: 1.1rem; color: #ef4444; font-weight: bold; line-height: 1.6;"></p>
+        <p style="max-width: 500px; margin-top: 15px; font-size: 1.2rem; color: #64748b; line-height: 1.6;">
+            Reflex Homes is currently undergoing emergency maintenance to optimize our servers. We apologize for the inconvenience and will be back shortly!
+        </p>
+        <div id="maintenanceCountdown" style="font-size: 1.8rem; font-weight: bold; color: #008080; margin-top: 20px;"></div>
+        <button onclick="location.reload()" class="btn-main" style="max-width: 200px; margin-top: 30px;">Check Site Status</button>
     </div>
 
     <script src="script.js"></script>

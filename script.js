@@ -21,6 +21,12 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // --- INITIAL THEME LOAD ---
+    const savedTheme = localStorage.getItem('baraka_theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+    }
+
     // --- 1. CORE NAVIGATION ---
     const authGate = document.getElementById('authGate');
     const seekerDashboard = document.getElementById('seekerDashboard');
@@ -45,11 +51,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     let seekerLocation = null;
     let radiusSearchActive = false;
     let selectedSchoolCoords = null;
-    let sessionEmail = ""; // Persistent session tracker
 
     // --- ADMIN VIEW SWITCHER LOGIC ---
     window.switchToView = (targetRole) => {
-        if (targetRole === 'admin' && sessionEmail !== 'ianmorgan107@gmail.com') {
+        const email = document.getElementById('userEmail')?.value.trim().toLowerCase();
+        if (targetRole === 'admin' && email !== 'ianmorgan107@gmail.com') {
             showToast("Unauthorized Access: Admin privileges required.", "error");
             return;
         }
@@ -292,7 +298,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const email = document.getElementById('userEmail').value.trim().toLowerCase();
         const password = document.getElementById('userPassword').value;
         const mpesaField = document.getElementById('payerPhone').value.trim();
-        sessionEmail = email; // Set session email
 
         if (!email) return;
 
@@ -774,7 +779,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             landlordDashboard.classList.add('hidden');
             adminDashboard.classList.add('hidden');
             authGate.classList.remove('hidden');
-            sessionEmail = ""; // Reset session
             clearActiveSession();
             if (adminUpdateInterval) clearInterval(adminUpdateInterval);
         });
@@ -791,10 +795,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- 2. THEME & UI EXTRAS ---
-    const themeBtns = document.querySelectorAll('.theme-toggle-btn');
-    themeBtns.forEach(btn => {
+    document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('baraka_theme', isDark ? 'dark' : 'light');
+            showToast(`${isDark ? 'Dark' : 'Light'} Mode Activated`, 'info');
         });
     });
 

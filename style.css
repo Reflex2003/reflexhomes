@@ -1,14 +1,41 @@
+:root {
+    --primary: #008080;
+    --primary-dark: #006666;
+    --secondary: #6366f1;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --bg-main: #f8fafc;
+    --card-bg: rgba(255, 255, 255, 0.8);
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+    --radius: 12px;
+    --glass: blur(10px);
+}
+
+body.dark-mode {
+    --bg-main: #0f172a;
+    --card-bg: rgba(30, 41, 59, 0.95);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    --glass: blur(15px);
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
 }
 
 body {
-    background-color: #f4f7f6;
-    color: #2c3e50;
+    background-color: var(--bg-main);
+    color: var(--text-main);
     padding: 20px;
+    line-height: 1.5;
 }
 
 .hidden { display: none !important; }
@@ -19,18 +46,22 @@ header {
 }
 
 header h1 {
-    color: #008080;
+    color: var(--primary);
     font-size: 2.5rem;
+    letter-spacing: -0.025em;
 }
 
 /* AUTHENTICATION BOX STYLING */
 .form-container {
-    background: white;
+    background: var(--card-bg);
+    backdrop-filter: var(--glass);
     max-width: 450px;
     margin: 30px auto;
     padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-main);
 }
 
 .form-container h2 {
@@ -49,9 +80,11 @@ input[type="text"], input[type="password"], textarea, select {
     width: 100%;
     padding: 12px;
     margin: 10px 0;
-    border: 1px solid #ccc;
+    border: 1px solid rgba(0,0,0,0.1);
     border-radius: 6px;
     font-size: 1rem;
+    background: var(--bg-main);
+    color: var(--text-main);
 }
 
 .payment-box {
@@ -66,23 +99,30 @@ input[type="text"], input[type="password"], textarea, select {
 /* BUTTONS */
 .btn-main {
     width: 100%;
-    padding: 14px;
-    background-color: #008080;
+    padding: 12px 20px;
+    background-color: var(--primary);
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius);
     font-weight: bold;
     cursor: pointer;
     margin-top: 10px;
+    transition: all 0.2s ease;
+}
+
+.btn-main:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 128, 128, 0.2);
 }
 
 .btn-pay {
     width: 100%;
-    background-color: #28a745;
+    background-color: var(--success);
     color: white;
     border: none;
     padding: 12px;
-    border-radius: 6px;
+    border-radius: var(--radius);
     cursor: pointer;
     font-weight: bold;
     margin-top: 10px;
@@ -111,11 +151,12 @@ input[type="text"], input[type="password"], textarea, select {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: white;
+    background: var(--card-bg);
+    backdrop-filter: var(--glass);
     padding: 15px 20px;
     border-radius: 8px;
     margin-bottom: 20px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-logout {
@@ -143,17 +184,20 @@ input[type="text"], input[type="password"], textarea, select {
 }
 
 .house-card {
-    background: white;
+    background: var(--card-bg);
+    color: var(--text-main);
+    backdrop-filter: var(--glass);
     padding: 20px;
     border-radius: 8px;
     border-top: 5px solid #ff4500;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow-md);
 }
 
 /* ADMIN DATA TABLE UI */
 .table-wrapper {
     overflow-x: auto;
-    background: white;
+    background: var(--card-bg);
+    color: var(--text-main);
     margin-top: 10px;
     border-radius: 8px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.05);
@@ -175,24 +219,43 @@ th {
     color: white;
 }
 
-tr:hover { background-color: #f8f9fa; }
+tr:hover { background-color: rgba(0,0,0,0.05); }
+body.dark-mode tr:hover { background-color: rgba(255, 255, 255, 0.05); }
 
 /* ADMIN UI EXTRAS */
 .admin-only-btn {
     background-color: #6366f1 !important; /* Indigo color */
     border: 2px solid rgba(255, 255, 255, 0.3) !important;
-    box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
-    animation: admin-pulse 2s infinite;
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+    animation: admin-entrance-shake 1s ease-in-out, admin-glow 3s infinite ease-in-out;
     transition: all 0.3s ease;
 }
 
 .admin-only-btn:hover {
     background-color: #4f46e5 !important;
     transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.8);
+    animation-duration: 1s, 1.5s;
 }
 
-@keyframes admin-pulse {
-    0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+@keyframes admin-entrance-shake {
+    0%, 100% { transform: translateX(0); }
+    15%, 45%, 75% { transform: translateX(-4px); }
+    30%, 60%, 90% { transform: translateX(4px); }
+}
+
+@keyframes admin-glow {
+    0%, 100% { box-shadow: 0 0 8px rgba(99, 102, 241, 0.5); }
+    50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.9), 0 0 30px rgba(99, 102, 241, 0.3); }
+}
+
+/* PANIC MODE ACTIVE PULSE */
+.panic-active {
+    animation: panic-pulse 0.8s infinite alternate !important;
+    box-shadow: 0 0 20px #ef4444 !important;
+}
+
+@keyframes panic-pulse {
+    from { background-color: #991b1b; transform: scale(1); }
+    to { background-color: #ef4444; transform: scale(1.05); }
 }
