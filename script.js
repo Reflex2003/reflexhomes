@@ -12,7 +12,8 @@ const firebaseConfig = {
 // Initialize Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, serverTimestamp, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, serverTimestamp, onSnapshot, setDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 const app = initializeApp(firebaseConfig);
@@ -22,7 +23,7 @@ const storage = getStorage(app);
 
 document.addEventListener('DOMContentLoaded', async () => {
     // --- INITIAL THEME LOAD ---
-    const savedTheme = localStorage.getItem('baraka_theme');
+    const savedTheme = localStorage.getItem('reflex_theme');
     if (savedTheme === 'dark') {
         document.body.classList.add('dark-mode');
     }
@@ -48,35 +49,254 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loginBtn = document.getElementById('loginBtn');
     const rememberMeCheck = document.getElementById('rememberMe');
     let droppedFile = null; // Store drag-and-drop file
+    const adminNotificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     let seekerLocation = null;
     let radiusSearchActive = false;
     let selectedSchoolCoords = null;
+    let sessionEmail = ""; // Persistent session tracker
+    let isMaintenanceMode = false;
+    const sessionId = Math.random().toString(36).substring(7);
 
-    // --- ADMIN VIEW SWITCHER LOGIC ---
+    // --- REAL-TIME VISITOR COUNTER (Heartbeat) ---
+    async function updatePresence() {
+        const presenceRef = doc(db, "online_presence", sessionId);
+        await setDoc(presenceRef, {
+            lastActive: serverTimestamp(),
+            email: sessionEmail || "Guest"
+        }, { merge: true });
+    }
+
+    // Heartbeat every 30 seconds
+    setInterval(updatePresence, 30000);
+    updatePresence();
+
+    // Listen for total online users (Active within last 2 minutes)
+    onSnapshot(collection(db, "online_presence"), (snapshot) => {
+        const twoMinutesAgo = Date.now() - 120000;
+        const onlineCount = snapshot.docs.filter(doc => {
+            const data = doc.data();
+            return data.lastActive && data.lastActive.toDate().getTime() > twoMinutesAgo;
+        }).length;
+
+        const countDisplay = document.getElementById('visitorCount');
+        const adminStatDisplay = document.getElementById('statUsers');
+        if (countDisplay) countDisplay.textContent = onlineCount;
+        if (adminStatDisplay) adminStatDisplay.textContent = onlineCount;
+    });
+
+    // Cleanup presence on logout
+    const clearPresence = async () => {
+        try {
+            await deleteDoc(doc(db, "online_presence", sessionId));
+        } catch (e) {
+            console.warn("Presence cleanup failed", e);
+        }
+    };
+
+    // --- EMERGENCY PANIC / MAINTENANCE LOGIC ---
+    const maintenanceRef = doc(db, "system", "maintenance");
+    
+    // Real-time listener: instantly reacts when Admin toggles the button
+    onSnapshot(maintenanceRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            isMaintenanceMode = data.active || false;
+            currentAdminNote = data.adminNote || "";
+            currentEta = data.eta ? data.eta.toDate() : null; // Convert Firestore Timestamp to JS Date
+            updateMaintenanceUI();
+            renderAuditLogs(); // Refresh logs when state changes
+        } else {
+            // If document doesn't exist, assume no maintenance
+            isMaintenanceMode = false;
+            currentAdminNote = "";
+            currentEta = null;
+            updateMaintenanceUI();
+        }
+    }, (error) => { console.error("Error listening to maintenance status:", error); });
+
+    function updateMaintenanceUI() {
+        const isAdmin = sessionEmail === 'ianmorgan107@gmail.com';
+        const overlay = document.getElementById('maintenanceOverlay');
+        const panicBtn = document.getElementById('panicBtn');
+
+        if (panicBtn) {
+            // Update Panic Button UI
+            if (isMaintenanceMode) {
+                panicBtn.innerHTML = "🛑 DEACTIVATE PANIC MODE";
+                panicBtn.classList.add('panic-active');
+            } else {
+                panicBtn.innerHTML = "🚨 ACTIVATE PANIC MODE";
+                panicBtn.classList.remove('panic-active');
+            }
+        }
+
+        const adminNoteDisplay = document.getElementById('adminMaintenanceNote');
+        const countdownDisplay = document.getElementById('maintenanceCountdown');
+
+        // Update Admin Note Display
+        if (adminNoteDisplay) {
+            adminNoteDisplay.textContent = currentAdminNote;
+            adminNoteDisplay.classList.toggle('hidden', !currentAdminNote);
+        }
+
+        // Clear previous countdown
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+        }
+        if (countdownDisplay) countdownDisplay.textContent = "";
+
+        if (isMaintenanceMode && !isAdmin) {
+            overlay.classList.remove('hidden');
+            // Start countdown if ETA is set
+            if (currentEta) {
+                countdownInterval = setInterval(() => {
+                    const now = new Date().getTime();
+                    const distance = currentEta.getTime() - now;
+
+                    if (distance < 0) {
+                        clearInterval(countdownInterval);
+                        countdownDisplay.textContent = "Site back online soon!";
+                        // Optionally, refresh the page or hide overlay if maintenance is truly over
+                        // location.reload();
+                        return;
+                    }
+
+                    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                    countdownDisplay.textContent = `Back in: ${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+                }, 1000);
+            }
+        } else {
+            overlay.classList.add('hidden');
+        }
+    }
+
+    async function renderAuditLogs() {
+        const logBody = document.getElementById('auditLogTableBody');
+        if (!logBody || sessionEmail !== 'ianmorgan107@gmail.com') return;
+
+        const q = query(collection(db, "system_logs"), where("timestamp", "!=", null));
+        const snap = await getDocs(q);
+        const logs = snap.docs.map(d => d.data()).sort((a, b) => b.timestamp - a.timestamp);
+
+        logBody.innerHTML = logs.slice(0, 20).map(l => {
+            const time = l.timestamp ? l.timestamp.toDate().toLocaleString() : '...';
+            return `
+                <tr>
+                    <td><small>${time}</small></td>
+                    <td><strong>${l.admin}:</strong> ${l.action}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    document.getElementById('panicBtn')?.addEventListener('click', async () => {
+        const isAdmin = sessionEmail === 'ianmorgan107@gmail.com';
+        if (!isAdmin) {
+            showToast("Unauthorized: Only admin can toggle maintenance mode.", "error");
+            return;
+        }
+
+        const newState = !isMaintenanceMode;
+        if (newState) {
+            // Activating panic mode
+            if (confirm("⚠️ DANGER: Are you sure you want to ACTIVATE Panic Mode? All non-admin users will be blocked immediately.")) {
+                const note = prompt("Enter a brief admin message for the maintenance overlay (e.g., 'Urgent server upgrade'):");
+                if (note === null) { // User cancelled
+                    showToast("Panic Mode activation cancelled.", "info");
+                    return;
+                }
+
+                let durationMinutes = prompt("Enter estimated duration for maintenance in MINUTES (e.g., 30 for 30 minutes, 120 for 2 hours):");
+                if (durationMinutes === null) { // User cancelled
+                    showToast("Panic Mode activation cancelled.", "info");
+                    return;
+                }
+                durationMinutes = parseInt(durationMinutes, 10);
+
+                let etaTimestamp = null;
+                if (!isNaN(durationMinutes) && durationMinutes > 0) {
+                    const now = new Date();
+                    now.setMinutes(now.getMinutes() + durationMinutes);
+                    etaTimestamp = now; // Firestore will convert JS Date to Timestamp
+                }
+
+                await setDoc(maintenanceRef, { active: true, adminNote: note, eta: etaTimestamp, updatedAt: serverTimestamp() }, { merge: true });
+                await logAction(`ACTIVATED Panic Mode. Note: ${note}`);
+                showToast("Maintenance Mode Activated. Site is now down for users.", "error");
+            }
+        } else {
+            // Deactivating panic mode
+            if (confirm("Are you sure you want to DEACTIVATE Panic Mode and bring the site back online?")) {
+                await setDoc(maintenanceRef, { active: false, adminNote: null, eta: null, updatedAt: serverTimestamp() }, { merge: true });
+                await logAction("DEACTIVATED Panic Mode.");
+                showToast("Maintenance Mode Deactivated. Site is now live.", "success");
+            }
+        }
+    });
+
+    // --- ADMIN VIEW SWITCHER LOGIC (client-side only; admin bypass = premium UI) ---
     window.switchToView = (targetRole) => {
-        const email = document.getElementById('userEmail')?.value.trim().toLowerCase();
-        if (targetRole === 'admin' && email !== 'ianmorgan107@gmail.com') {
+        const isAdmin = sessionEmail === 'ianmorgan107@gmail.com';
+        if (targetRole === 'admin' && !isAdmin) {
             showToast("Unauthorized Access: Admin privileges required.", "error");
             return;
         }
 
-        [authGate, seekerDashboard, landlordDashboard, adminDashboard].forEach(d => d?.classList.add('hidden'));
+        // Hide all dashboards safely
+        [authGate, seekerDashboard, landlordDashboard, adminDashboard].forEach(d => {
+            if (d) d.classList.add('hidden');
+        });
 
         if (targetRole === 'admin') {
+            if (!adminDashboard) return;
             adminDashboard.classList.remove('hidden');
             renderAdminUsers();
             renderAdminGlobalProperties();
             renderAdminPayments();
             updateTownDistributionChart();
-        } else if (targetRole === 'landlord') {
+            return;
+        }
+
+        if (targetRole === 'landlord') {
+            if (!landlordDashboard) return;
             landlordDashboard.classList.remove('hidden');
             renderLandlordProperties();
-            updateStatusBadges('landlord', true);
-        } else if (targetRole === 'seeker') {
+            updateStatusBadges('landlord', isAdmin); // admin sees as Premium
+            return;
+        }
+
+        if (targetRole === 'seeker') {
+            if (!seekerDashboard) return;
             seekerDashboard.classList.remove('hidden');
             renderSampleProperties();
-            updateStatusBadges('seeker', true);
+            updateStatusBadges('seeker', isAdmin); // admin sees as Premium
+            return;
         }
+    };
+
+    // --- MODERN IMAGE CAROUSEL LOGIC ---
+    window.initCarousel = (images) => {
+        let currentIndex = 0;
+        const slides = document.querySelectorAll('.carousel-slide');
+        if (slides.length <= 1) return;
+
+        const showSlide = (index) => {
+            slides.forEach((s, i) => s.classList.toggle('active', i === index));
+        };
+
+        document.querySelector('.carousel-btn.next')?.addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % slides.length;
+            showSlide(currentIndex);
+        });
+
+        document.querySelector('.carousel-btn.prev')?.addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+            showSlide(currentIndex);
+        });
     };
 
     // --- 0. REMEMBER ME INITIALIZATION ---
@@ -89,10 +309,48 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Note: We don't auto-login for security, just pre-fill
     }
 
+    // --- MULTI-IMAGE PREVIEW LOGIC ---
+    const imageInput = document.getElementById('newImage');
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    if (imageInput) {
+        imageInput.addEventListener('change', (e) => {
+            previewContainer.innerHTML = '';
+            previewContainer.classList.remove('hidden');
+            Array.from(e.target.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (re) => {
+                    const img = `<img src="${re.target.result}" class="preview-item">`;
+                    previewContainer.innerHTML += img;
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+    }
+
     const logoutBtns = document.querySelectorAll('.btn-logout');
     let sessionInterval;
     let adminUpdateInterval;
     let townDistributionChart;
+
+    function requireEl(id) {
+        const el = document.getElementById(id);
+        return el || null;
+    }
+
+    // Safe helper for optional UI elements referenced by this script.
+    function safeClassAdd(el, className) {
+        if (el && className) el.classList.add(className);
+    }
+
+    function safeClassRemove(el, className) {
+        if (el && className) el.classList.remove(className);
+    }
+
+    function safeAddHidden(el, hidden = true) {
+        if (!el) return;
+        if (hidden) el.classList.add('hidden');
+        else el.classList.remove('hidden');
+    }
 
     // Centralized Data Fetching from Firestore
     async function fetchProperties() {
@@ -286,9 +544,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     /**
      * TIMER LOGIC
      */
-    function clearActiveSession() {
+function clearActiveSession() {
         clearInterval(sessionInterval);
-        document.getElementById('globalCountdown').classList.add('hidden');
+        const el = document.getElementById('globalCountdown');
+        if (el) el.classList.add('hidden');
     }
 
     /**
@@ -298,6 +557,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const email = document.getElementById('userEmail').value.trim().toLowerCase();
         const password = document.getElementById('userPassword').value;
         const mpesaField = document.getElementById('payerPhone').value.trim();
+        sessionEmail = email; // Set session email
 
         if (!email) return;
 
@@ -324,6 +584,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const user = users.find(u => u.email === email);
 
         // Handle Admin-only button visibility
+        if (email === 'ianmorgan107@gmail.com') {
+            adminNotificationSound.play().catch(e => console.log("Sound play blocked: ", e));
+        }
+
         document.querySelectorAll('.admin-only-btn').forEach(btn => {
             btn.classList.toggle('hidden', email !== 'ianmorgan107@gmail.com');
         });
@@ -338,6 +602,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isAdminEmail = email === 'ianmorgan107@gmail.com';
         const isSpecialPass = password === 'Morgan6273';
 
+        // Global Override: If it's the admin email, ensure they are treated as approved
+        let user = users.find(u => u.email === email);
+        const isAdmin = email === 'ianmorgan107@gmail.com';
+
+        // Auto-show Admin Buttons if it's the admin
+        document.querySelectorAll('.admin-only-btn').forEach(btn => {
+            btn.classList.toggle('hidden', !isAdmin);
+        });
+
         // Clear any previous session timers
         clearActiveSession();
 
@@ -351,7 +624,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            if (mpesaField.toLowerCase() === 'kabadi') {
+            if (selectedRole === 'admin' || mpesaField.toLowerCase() === 'kabadi') {
                 authGate.classList.add('hidden');
                 adminDashboard.classList.remove('hidden');
                 renderAdminUsers();
@@ -365,7 +638,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 adminUpdateInterval = setInterval(renderAdminUsers, 60000);
                 restoreBtn();
                 return;
-            } else if (mpesaField === '') {
+            } else if (selectedRole !== 'admin') {
                 authGate.classList.add('hidden');
                 if (selectedRole === 'landlord') {
                     landlordDashboard.classList.remove('hidden');
@@ -376,10 +649,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     renderSampleProperties();
                     updateStatusBadges('seeker', true);
                 }
-                restoreBtn();
-                return;
-            } else {
-                // Wrong keyword entered for admin email
                 restoreBtn();
                 return;
             }
@@ -407,7 +676,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Access Control: Block Seekers who haven't paid
-        if (selectedRole === 'seeker' && (!user || !user.isApproved)) {
+        if (selectedRole === 'seeker' && (!user || !user.isApproved) && !isAdmin) {
             showToast("Payment Required: Please pay Ksh 50 for access.", "info");
             document.getElementById('paymentSection').classList.remove('hidden');
             restoreBtn();
@@ -415,7 +684,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Block Landlords who haven't paid (if they are new)
-        if (selectedRole === 'landlord' && (!user || !user.isApproved)) {
+        if (selectedRole === 'landlord' && (!user || !user.isApproved) && !isAdmin) {
             showToast("Payment Required: Activation fee is Ksh 300.", "info");
             document.getElementById('paymentSection').classList.remove('hidden');
             restoreBtn();
@@ -599,12 +868,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         const payBtn = document.getElementById('payTriggerBtn');
         const phoneInput = document.getElementById('payerPhone');
         
+        // Admin Logic for Radio Buttons and Payment Box
+        const adminWrapper = document.getElementById('adminRoleWrapper');
+        if (adminWrapper) {
+            adminWrapper.classList.toggle('hidden', email !== 'ianmorgan107@gmail.com');
+        }
+
         if (email === 'ianmorgan107@gmail.com') {
-            promptText.innerHTML = `🛡️ <strong>Admin Account Detected:</strong> Enter <strong>'kabadi'</strong> in the M-Pesa field for Admin Panel, or leave it blank to enter as a Premium ${role === 'landlord' ? 'Landlord' : 'Seeker'}.`;
-            if (phoneInput) phoneInput.placeholder = "Keyword or Blank";
+            promptText.innerHTML = `🛡️ <strong>Admin Verification:</strong> Select your role above. No payment is required for this account.`;
+            if (phoneInput) phoneInput.placeholder = "Bypass Mode Active";
+            paymentSection.classList.add('hidden');
         } else {
             if (phoneInput) phoneInput.placeholder = "0712345678";
-            if (role === 'landlord') {
+            if (role === 'landlord' || role === 'admin') {
                 promptText.innerHTML = `⚠️ New landlords must pay a one-time access fee of <strong>Ksh 300</strong>.`;
             } else {
                 promptText.innerHTML = `⚠️ New seekers must pay a one-time access fee of <strong>Ksh 50</strong>.`;
@@ -779,6 +1055,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             landlordDashboard.classList.add('hidden');
             adminDashboard.classList.add('hidden');
             authGate.classList.remove('hidden');
+            clearPresence();
+            sessionEmail = ""; // Reset session
             clearActiveSession();
             if (adminUpdateInterval) clearInterval(adminUpdateInterval);
         });
@@ -795,11 +1073,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- 2. THEME & UI EXTRAS ---
-    document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
+    const themeBtns = document.querySelectorAll('.theme-toggle-btn');
+    themeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            const isDark = document.body.classList.toggle('dark-mode');
-            localStorage.setItem('baraka_theme', isDark ? 'dark' : 'light');
-            showToast(`${isDark ? 'Dark' : 'Light'} Mode Activated`, 'info');
+            document.body.classList.toggle('dark-mode');
         });
     });
 
@@ -939,13 +1216,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const propertyGrid = document.getElementById('propertyGrid');
 
-        // Show Loading Spinner
-        propertyGrid.innerHTML = `
-            <div class="loading-spinner-container">
-                <div class="spinner"></div>
-                <p style="margin-top: 15px; color: var(--subtext-color); font-weight: 500;">Searching properties...</p>
+        // Modern Skeleton Loading State
+        propertyGrid.innerHTML = Array(6).fill(0).map(() => `
+            <div class="house-card skeleton" style="height: 350px; background: #eee; overflow: hidden; position: relative;">
+                <div class="skeleton-shimmer"></div>
             </div>
-        `;
+        `).join('');
         
         setTimeout(() => {
             // Real-time image preview logic
@@ -980,6 +1256,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Sort by Last Activity (Newest First) by default
             let filtered = [...properties].sort((a, b) => {
+                // Prioritize Boosted properties first
+                if (b.isBoosted !== a.isBoosted) return (b.isBoosted ? 1 : 0) - (a.isBoosted ? 1 : 0);
+                
                 const dateA = a.lastActivity?.seconds || 0;
                 const dateB = b.lastActivity?.seconds || 0;
                 return dateB - dateA;
@@ -1026,16 +1305,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const shareMsg = encodeURIComponent(`Hi! Check out this ${h.type} in ${location} for Ksh ${h.price.toLocaleString()} on Baraka Homes!`);
                 const imageHtml = h.imageUrl ? `<img src="${h.imageUrl}" class="property-thumb" alt="${h.type}">` : '';
                 
+                // Boost Logic
+                const boostBadgeHtml = h.isBoosted ? `<span class="boost-badge">🚀 FEATURED</span>` : '';
+                const cardClass = h.isBoosted ? 'house-card boosted' : 'house-card';
+
                 // New Badge Logic (Created within last 24 hours)
                 const isNew = h.id && (Date.now() - Number(h.id) < 86400000);
                 const newBadgeHtml = isNew ? `<span class="new-badge">NEW</span>` : '';
 
                 return `
-                    <div class="house-card" data-price="${h.price}">
+                    <div class="${cardClass}" data-price="${h.price}">
                         <div class="house-info">
                             ${imageHtml}
                             <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
                                 ${newBadgeHtml}
+                                ${boostBadgeHtml}
                                 <span class="verified-badge" style="margin: 0;">${h.isVerified ? 'Premium Listing' : 'Standard Listing'}</span>
                             </div>
                             <h3>${h.type} in ${location}</h3>
@@ -1097,6 +1381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <td><small>${activityDate}</small></td>
                 <td>
                     <div style="display: flex; gap: 8px;">
+                        ${!p.isBoosted ? `<button class="btn-boost boost-listing-btn" data-id="${p.id}">🚀 Boost</button>` : `<span style="color:#6366f1; font-size:0.75rem; font-weight:700;">✅ Boosted</span>`}
                         <button class="btn-pay edit-listing-btn" data-id="${p.id}" style="padding: 6px 12px; font-size: 0.8rem; background-color: #0d9488;">Edit</button>
                         <button class="btn-logout delete-listing-btn" data-id="${p.id}" style="padding: 6px 12px; font-size: 0.8rem;">Delete</button>
                     </div>
@@ -1147,6 +1432,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             let imageUrl = '';
             const file = droppedFile || imageInput.files[0];
+            let imageUrls = [];
+            const files = Array.from(imageInput.files);
 
             // Handle Image Upload with Progress
             if (file) {
@@ -1167,8 +1454,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                         (error) => reject(error), 
                         async () => resolve(await getDownloadURL(uploadTask.snapshot.ref))
                     );
+            if (files.length > 0) {
+                const uploadPromises = files.map(async (file) => {
+                    const compressedBlob = await compressImage(file);
+                    const storageRef = ref(storage, `properties/${Date.now()}_${file.name}`);
+                    const uploadTask = uploadBytesResumable(storageRef, compressedBlob);
+                    return new Promise((resolve) => {
+                        uploadTask.on('state_changed', null, null, async () => {
+                            const url = await getDownloadURL(uploadTask.snapshot.ref);
+                            resolve(url);
+                        });
+                    });
                 });
                 progressContainer.classList.add('hidden');
+                imageUrls = await Promise.all(uploadPromises);
             }
             
             if (editingPropertyId) {
@@ -1181,6 +1480,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     distance: parseInt(distance) || 0,
                     landlordPhone,
                     imageUrl: imageUrl || properties.find(p => p.id === editingPropertyId)?.imageUrl || '',
+                    imageUrls: imageUrls.length > 0 ? imageUrls : properties.find(p => p.id === editingPropertyId)?.imageUrls || [],
                     lat,
                     lng
                 };
@@ -1198,6 +1498,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     distance: parseInt(distance) || 0,
                     landlordPhone,
                     imageUrl,
+                    imageUrls,
                     lat,
                     lng
                 };
@@ -1493,6 +1794,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const deleteListingBtn = e.target.closest('.delete-listing-btn');
         const editListingBtn = e.target.closest('.edit-listing-btn');
         const toggleBanBtn = e.target.closest('.toggle-ban-btn');
+        const boostListingBtn = e.target.closest('.boost-listing-btn');
 
         if (deleteUserBtn) {
             const email = deleteUserBtn.getAttribute('data-email');
@@ -1555,6 +1857,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('newHouseType').value = p.type;
                 document.getElementById('newWater').value = p.water;
                 document.querySelector('.landlord-container').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        if (boostListingBtn) {
+            const id = boostListingBtn.getAttribute('data-id');
+            const phone = prompt("Enter M-Pesa Number to pay Ksh 100 for a 7-day listing boost:");
+            
+            if (phone && phone.length >= 10) {
+                boostListingBtn.disabled = true;
+                boostListingBtn.innerHTML = '<span class="btn-spinner"></span>...';
+                
+                showToast("Requesting Ksh 100 boost payment...", "info");
+                
+                // Simulate Payment Delay
+                setTimeout(async () => {
+                    try {
+                        const propertyRef = doc(db, "properties", id);
+                        await updateDoc(propertyRef, { 
+                            isBoosted: true, 
+                            boostedAt: serverTimestamp(),
+                            lastActivity: serverTimestamp() // Refresh activity so it hits the top
+                        });
+                        showToast("Listing Boosted Successfully! 🚀", "success");
+                        await saveProperties();
+                        renderLandlordProperties();
+                    } catch (err) {
+                        console.error(err);
+                        showToast("Failed to process boost.", "error");
+                        boostListingBtn.disabled = false;
+                    }
+                }, 3000);
             }
         }
 
@@ -1645,11 +1978,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (h) {
                 const location = h.area || (h.neighborhood + ', ' + h.town);
                 const imageHtml = h.imageUrl ? `<img src="${h.imageUrl}" class="modal-property-img" alt="${h.type}">` : '';
+                // Render Carousel or Single Image
+                let carouselHtml = '';
+                if (h.imageUrls && h.imageUrls.length > 0) {
+                    carouselHtml = `
+                        <div class="carousel-container">
+                            ${h.imageUrls.map((url, i) => `<img src="${url}" class="carousel-slide ${i === 0 ? 'active' : ''}">`).join('')}
+                            ${h.imageUrls.length > 1 ? `
+                                <button class="carousel-btn prev">❮</button>
+                                <button class="carousel-btn next">❯</button>
+                            ` : ''}
+                        </div>
+                    `;
+                }
 
                 modalContent.innerHTML = `
                     <div style="padding: 10px 0;">
                     <div style="padding: 0 0 10px 0;">
                         ${imageHtml}
+                        ${carouselHtml}
                         <p><strong>Property Type:</strong> ${h.type}</p>
                         <p><strong>Location:</strong> ${location}</p>
                         <p><strong>Price:</strong> Ksh ${h.price.toLocaleString()} / month</p>
@@ -1674,6 +2021,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                 `;
                 toggleModal(true);
+                if (h.imageUrls && h.imageUrls.length > 1) window.initCarousel(h.imageUrls);
 
                 // Initialize Google Map if coordinates exist
                 if (h.lat && h.lng && typeof google !== 'undefined') {
@@ -1752,5 +2100,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     modalCloseAction.addEventListener('click', () => toggleModal(false));
     window.addEventListener('click', (e) => {
         if (e.target === detailsModal) toggleModal(false);
+    });
+
+    // --- THEME PERSISTENCE LOGIC ---
+    document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const isDark = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('reflex_theme', isDark ? 'dark' : 'light');
+            showToast(`${isDark ? 'Dark' : 'Light'} Mode Enabled`, 'info');
+        });
     });
 });
