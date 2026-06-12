@@ -47,6 +47,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const adminDashboard = document.getElementById('adminDashboard');
     const loginBtn = document.getElementById('loginBtn');
     const rememberMeCheck = document.getElementById('rememberMe');
+    const imageInput = document.getElementById('newImage');
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    const previewImg = document.getElementById('imagePreview');
+    const removeImgBtn = document.getElementById('removeImageBtn');
+    const payTriggerBtn = document.getElementById('payTriggerBtn');
+
     let droppedFile = null; // Store drag-and-drop file
     const adminNotificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     const adminTypingSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3'); // Bubble pop sound
@@ -497,9 +503,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Note: We don't auto-login for security, just pre-fill
     }
 
-    // --- MULTI-IMAGE PREVIEW LOGIC ---
-    const imageInput = document.getElementById('newImage');
-    const previewContainer = document.getElementById('imagePreviewContainer');
     if (imageInput) {
         imageInput.addEventListener('change', (e) => {
             previewContainer.innerHTML = '';
@@ -523,15 +526,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     function requireEl(id) {
         const el = document.getElementById(id);
         return el || null;
-    }
-
-    // Safe helper for optional UI elements referenced by this script.
-    function safeClassAdd(el, className) {
-        if (el && className) el.classList.add(className);
-    }
-
-    function safeClassRemove(el, className) {
-        if (el && className) el.classList.remove(className);
     }
 
     function safeAddHidden(el, hidden = true) {
@@ -626,12 +620,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const querySnapshot = await getDocs(collection(db, "users"));
         return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     }
-
-    // UI Element Selections - Moved to top to prevent ReferenceErrors (TDZ)
-    const imageInput = document.getElementById('newImage');
-    const previewContainer = document.getElementById('imagePreviewContainer');
-    const previewImg = document.getElementById('imagePreview');
-    const removeImgBtn = document.getElementById('removeImageBtn');
 
     let users = [];
     let properties = [];
@@ -791,7 +779,6 @@ function clearActiveSession() {
         const isSpecialPass = password === 'Morgan6273';
 
         // Global Override: If it's the admin email, ensure they are treated as approved
-        let user = users.find(u => u.email === email);
         const isAdmin = email === 'ianmorgan107@gmail.com';
 
         // Auto-show Admin Buttons if it's the admin
@@ -986,8 +973,6 @@ function clearActiveSession() {
         }, 1000);
     }
 
-    loginBtn.addEventListener('click', handleLogin);
-
     /**
      * DRAG AND DROP FOR PROPERTY IMAGES - Relocated after element definitions
      */
@@ -1018,28 +1003,6 @@ function clearActiveSession() {
 
         previewContainer.addEventListener('click', (e) => {
             if (e.target.id !== 'removeImageBtn') imageInput.click();
-        });
-    }
-
-    if (imageInput) {
-        imageInput.addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    previewImg.src = e.target.result;
-                    previewContainer.classList.remove('hidden');
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-
-    if (removeImgBtn) {
-        removeImgBtn.addEventListener('click', () => {
-            imageInput.value = '';
-            previewContainer.classList.add('hidden');
-            previewImg.src = '';
         });
     }
 
@@ -1128,7 +1091,6 @@ function clearActiveSession() {
     /**
      * M-PESA STK PUSH SIMULATION
      */
-    const payTriggerBtn = document.getElementById('payTriggerBtn');
     if (payTriggerBtn) {
         payTriggerBtn.addEventListener('click', async () => {
             const phone = document.getElementById('payerPhone').value.trim();
