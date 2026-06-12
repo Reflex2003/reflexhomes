@@ -638,10 +638,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     /**
      * CUSTOM TOAST SYSTEM
      */
-    function showToast(message, type = 'info') {
+    function showToast(message, type = 'info', techError = null) {
         const container = document.getElementById('toastContainer');
+        if (!container) return;
+
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
+        
+        if (debugMode && techError) {
+            message += ` | 🛠️ RAW: ${techError}`;
+        }
+        
         toast.textContent = message;
         container.appendChild(toast);
         
@@ -725,168 +732,177 @@ function clearActiveSession() {
      * Central login processor
      */
     async function handleLogin() {
-        const email = document.getElementById('userEmail').value.trim().toLowerCase();
-        const password = document.getElementById('userPassword').value;
-        const mpesaField = document.getElementById('payerPhone').value.trim();
-        sessionEmail = email; // Set session email
-
-        if (!email) return;
-
-        // Start loading state
-        loginBtn.disabled = true;
+        console.log("Login attempt initiated: handleLogin() called.");
+        
         const originalBtnText = loginBtn.innerHTML;
-        loginBtn.innerHTML = '<span class="btn-spinner"></span> Verifying...';
-
         const restoreBtn = () => {
             loginBtn.disabled = false;
             loginBtn.innerHTML = originalBtnText;
         };
-        
-        // Handle Remember Me storage
-        if (rememberMeCheck && rememberMeCheck.checked) {
-            localStorage.setItem('baraka_remembered_email', email);
-            localStorage.setItem('baraka_remembered_pass', password);
-        } else {
-            localStorage.removeItem('baraka_remembered_email');
-            localStorage.removeItem('baraka_remembered_pass');
-        }
 
-        const selectedRole = document.querySelector('input[name="userRole"]:checked').value;
-        const user = users.find(u => u.email === email);
+        try {
+            const email = document.getElementById('userEmail').value.trim().toLowerCase();
+            const password = document.getElementById('userPassword').value;
+            const mpesaField = document.getElementById('payerPhone').value.trim();
+            sessionEmail = email; 
 
-        // Handle Admin-only button visibility
-        if (email === 'ianmorgan107@gmail.com') {
-            adminNotificationSound.play().catch(e => console.log("Sound play blocked: ", e));
-        }
-
-        document.querySelectorAll('.admin-only-btn').forEach(btn => {
-            btn.classList.toggle('hidden', email !== 'ianmorgan107@gmail.com');
-        });
-
-        // --- BANNED USER CHECK ---
-        if (user && user.isBanned) {
-            showToast("Access Denied: Your account has been banned.", "error");
-            restoreBtn();
-            return;
-        }
-
-        const isAdminEmail = email === 'ianmorgan107@gmail.com';
-        const isSpecialPass = password === 'Morgan6273';
-
-        // Global Override: If it's the admin email, ensure they are treated as approved
-        user = users.find(u => u.email === email);
-        const isAdmin = email === 'ianmorgan107@gmail.com';
-
-        // Auto-show Admin Buttons if it's the admin
-        document.querySelectorAll('.admin-only-btn').forEach(btn => {
-            btn.classList.toggle('hidden', !isAdmin);
-        });
-
-        // Clear any previous session timers
-        clearActiveSession();
-
-        // --- ADMIN BYPASS LOGIC ---
-        if (isAdminEmail) {
-            const passwordInput = document.getElementById('userPassword');
-            if (password !== 'Morgan6273') {
-                passwordInput.classList.add('shake-animation', 'input-error');
-                setTimeout(() => passwordInput.classList.remove('shake-animation'), 500);
-                restoreBtn();
+            if (!email) {
+                console.warn("Login aborted: No email provided.");
                 return;
             }
 
-            if (selectedRole === 'admin' || mpesaField.toLowerCase() === 'kabadi') {
-                authGate.classList.add('hidden');
-                adminDashboard.classList.remove('hidden');
-                renderAdminUsers();
-                renderAdminGlobalProperties();
-                payments = await fetchPayments(); // Fetch payments for admin
-                renderAdminPayments();
-                updateTownDistributionChart();
+            // Start loading state
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<span class="btn-spinner"></span> Verifying...';
 
-                // Start auto-refresh for online status (Every 60 seconds)
-                if (adminUpdateInterval) clearInterval(adminUpdateInterval);
-                adminUpdateInterval = setInterval(renderAdminUsers, 60000);
-                restoreBtn();
-                return;
-            } else if (selectedRole !== 'admin') {
-                authGate.classList.add('hidden');
-                if (selectedRole === 'landlord') {
-                    landlordDashboard.classList.remove('hidden');
-                    renderLandlordProperties();
-                    updateStatusBadges('landlord', true);
-                } else {
-                    seekerDashboard.classList.remove('hidden');
-                    renderSampleProperties();
-                    updateStatusBadges('seeker', true);
-                }
-                restoreBtn();
-                return;
+            // Handle Remember Me storage
+            if (rememberMeCheck && rememberMeCheck.checked) {
+                localStorage.setItem('baraka_remembered_email', email);
+                localStorage.setItem('baraka_remembered_pass', password);
+            } else {
+                localStorage.removeItem('baraka_remembered_email');
+                localStorage.removeItem('baraka_remembered_pass');
             }
-        }
 
-        // --- DEMO ACCESS LOGIC ---
-        if (isSpecialPass && !isAdminEmail) {
-            const lockoutKey = `baraka_lockout_${email}`;
-            const lockoutTime = localStorage.getItem(lockoutKey);
+            const selectedRole = document.querySelector('input[name="userRole"]:checked').value;
+            console.log("Role detected for login:", selectedRole);
             
-            if (lockoutTime && Date.now() - parseInt(lockoutTime) < 24 * 60 * 60 * 1000) {
-                const hoursLeft = (24 - (Date.now() - parseInt(lockoutTime)) / 3600000).toFixed(1);
-                showToast(`Demo expired. Locked for ${hoursLeft} hours.`, "error");
+            let user = users.find(u => u.email === email);
+
+            // Handle Admin-only button visibility
+            if (email === 'ianmorgan107@gmail.com') {
+                adminNotificationSound.play().catch(e => console.log("Sound play blocked: ", e));
+            }
+
+            document.querySelectorAll('.admin-only-btn').forEach(btn => {
+                btn.classList.toggle('hidden', email !== 'ianmorgan107@gmail.com');
+            });
+
+            // --- BANNED USER CHECK ---
+            if (user && user.isBanned) {
+                showToast("Access Denied: Your account has been banned.", "error");
                 restoreBtn();
                 return;
+            }
+
+            const isAdminEmail = email === 'ianmorgan107@gmail.com';
+            const isSpecialPass = password === 'Morgan6273';
+            const isAdmin = email === 'ianmorgan107@gmail.com';
+
+            // Auto-show Admin Buttons if it's the admin
+            document.querySelectorAll('.admin-only-btn').forEach(btn => {
+                btn.classList.toggle('hidden', !isAdmin);
+            });
+
+            // Clear any previous session timers
+            clearActiveSession();
+
+            // --- ADMIN BYPASS LOGIC ---
+            if (isAdminEmail) {
+                const passwordInput = document.getElementById('userPassword');
+                if (password !== 'Morgan6273') {
+                    passwordInput.classList.add('shake-animation', 'input-error');
+                    setTimeout(() => passwordInput.classList.remove('shake-animation'), 500);
+                    restoreBtn();
+                    return;
+                }
+
+                if (selectedRole === 'admin' || mpesaField.toLowerCase() === 'kabadi') {
+                    authGate.classList.add('hidden');
+                    adminDashboard.classList.remove('hidden');
+                    renderAdminUsers();
+                    renderAdminGlobalProperties();
+                    payments = await fetchPayments(); 
+                    renderAdminPayments();
+                    updateTownDistributionChart();
+
+                    if (adminUpdateInterval) clearInterval(adminUpdateInterval);
+                    adminUpdateInterval = setInterval(renderAdminUsers, 60000);
+                    restoreBtn();
+                    console.log("Admin bypass successful.");
+                    return;
+                } else if (selectedRole !== 'admin') {
+                    authGate.classList.add('hidden');
+                    if (selectedRole === 'landlord') {
+                        landlordDashboard.classList.remove('hidden');
+                        renderLandlordProperties();
+                        updateStatusBadges('landlord', true);
+                    } else {
+                        seekerDashboard.classList.remove('hidden');
+                        renderSampleProperties();
+                        updateStatusBadges('seeker', true);
+                    }
+                    restoreBtn();
+                    console.log("Admin role-switch successful.");
+                    return;
+                }
+            }
+
+            // --- DEMO ACCESS LOGIC ---
+            if (isSpecialPass && !isAdminEmail) {
+                const lockoutKey = `baraka_lockout_${email}`;
+                const lockoutTime = localStorage.getItem(lockoutKey);
+                
+                if (lockoutTime && Date.now() - parseInt(lockoutTime) < 24 * 60 * 60 * 1000) {
+                    const hoursLeft = (24 - (Date.now() - parseInt(lockoutTime)) / 3600000).toFixed(1);
+                    showToast(`Demo expired. Locked for ${hoursLeft} hours.`, "error");
+                    restoreBtn();
+                    return;
+                }
+
+                authGate.classList.add('hidden');
+                const dashboard = selectedRole === 'landlord' ? landlordDashboard : seekerDashboard;
+                dashboard.classList.remove('hidden');
+                if (selectedRole === 'seeker') renderSampleProperties();
+                startSessionTimer(email, 10 * 60, true, selectedRole);
+                restoreBtn();
+                console.log("Demo login successful.");
+                return;
+            }
+
+            // Access Control: Block Seekers who haven't paid
+            if (selectedRole === 'seeker' && (!user || !user.isApproved) && !isAdmin) {
+                showToast("Payment Required: Please pay Ksh 50 for access.", "info");
+                document.getElementById('paymentSection').classList.remove('hidden');
+                restoreBtn();
+                return;
+            }
+
+            // Block Landlords who haven't paid (if they are new)
+            if (selectedRole === 'landlord' && (!user || !user.isApproved) && !isAdmin) {
+                showToast("Payment Required: Activation fee is Ksh 300.", "info");
+                document.getElementById('paymentSection').classList.remove('hidden');
+                restoreBtn();
+                return;
+            }
+
+            // Update Last Login Timestamp in Firestore
+            if (user && user.id) {
+                const userRef = doc(db, "users", user.id);
+                await updateDoc(userRef, { lastLogin: serverTimestamp() });
             }
 
             authGate.classList.add('hidden');
-            const dashboard = selectedRole === 'landlord' ? landlordDashboard : seekerDashboard;
-            dashboard.classList.remove('hidden');
-            if (selectedRole === 'seeker') renderSampleProperties();
-            startSessionTimer(email, 10 * 60, true, selectedRole);
-            restoreBtn();
-            return;
-        }
 
-        // Access Control: Block Seekers who haven't paid
-        if (selectedRole === 'seeker' && (!user || !user.isApproved) && !isAdmin) {
-            showToast("Payment Required: Please pay Ksh 50 for access.", "info");
-            document.getElementById('paymentSection').classList.remove('hidden');
-            restoreBtn();
-            return;
-        }
-
-        // Block Landlords who haven't paid (if they are new)
-        if (selectedRole === 'landlord' && (!user || !user.isApproved) && !isAdmin) {
-            showToast("Payment Required: Activation fee is Ksh 300.", "info");
-            document.getElementById('paymentSection').classList.remove('hidden');
-            restoreBtn();
-            return;
-        }
-
-        // Update Last Login Timestamp in Firestore
-        if (user && user.id) {
-            const userRef = doc(db, "users", user.id);
-            try {
-                await updateDoc(userRef, { lastLogin: serverTimestamp() });
-            } catch (err) {
-                console.error("Login tracking failed:", err);
+            if (selectedRole === 'landlord') {
+                landlordDashboard.classList.remove('hidden');
+                renderLandlordProperties();
+                updateStatusBadges('landlord', user?.isApproved);
+            } else {
+                seekerDashboard.classList.remove('hidden');
+                renderSampleProperties();
+                updateStatusBadges('seeker', user?.isApproved);
+                if (user?.isApproved) startSessionTimer(email, 18 * 60 * 60, false, 'seeker');
             }
-        }
+            
+            restoreBtn();
+            console.log("Standard login sequence finished successfully.");
 
-        authGate.classList.add('hidden');
-
-        if (selectedRole === 'landlord') {
-            landlordDashboard.classList.remove('hidden');
-            renderLandlordProperties();
-            updateStatusBadges('landlord', user?.isApproved);
-            // Landlords have unlimited access - no timer
-        } else {
-            seekerDashboard.classList.remove('hidden');
-            renderSampleProperties();
-            updateStatusBadges('seeker', user?.isApproved);
-            // Paid Seekers get 18 hours
-            if (user?.isApproved) startSessionTimer(email, 18 * 60 * 60, false, 'seeker');
+        } catch (error) {
+            console.error("CRITICAL ERROR during handleLogin:", error);
+            showToast("An unexpected error occurred. Please check your connection.", "error", error.message);
+            restoreBtn();
         }
-        restoreBtn();
     }
 
     function startSessionTimer(email, durationSeconds, isDemo, role) {
@@ -2235,7 +2251,7 @@ function clearActiveSession() {
                     }, 200);
                 }
             }
-    111111111111111111111111111111111111111111111                                                                                                                                                                                                                       q                                                                                                                               aaaaaaaaaaaaA1q
+        }
     });
 
     closeModalBtn.addEventListener('click', () => toggleModal(false));
@@ -2252,4 +2268,15 @@ function clearActiveSession() {
             showToast(`${isDark ? 'Dark' : 'Light'} Mode Enabled`, 'info');
         });
     });
+
+    // --- DEBUG MODE TOGGLE LOGIC ---
+    const debugToggle = document.getElementById('debugModeToggle');
+    if (debugToggle) {
+        debugToggle.checked = debugMode;
+        debugToggle.addEventListener('change', (e) => {
+            debugMode = e.target.checked;
+            localStorage.setItem('reflex_debug_mode', debugMode);
+            showToast(`Technical Debug Mode ${debugMode ? 'ON' : 'OFF'}`, 'info');
+        });
+    }
 });
