@@ -47,12 +47,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const adminDashboard = document.getElementById('adminDashboard');
     const loginBtn = document.getElementById('loginBtn');
     const rememberMeCheck = document.getElementById('rememberMe');
-    const imageInput = document.getElementById('newImage');
-    const previewContainer = document.getElementById('imagePreviewContainer');
-    const previewImg = document.getElementById('imagePreview');
-    const removeImgBtn = document.getElementById('removeImageBtn');
-    const payTriggerBtn = document.getElementById('payTriggerBtn');
-
     let droppedFile = null; // Store drag-and-drop file
     const adminNotificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     const adminTypingSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3'); // Bubble pop sound
@@ -503,6 +497,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Note: We don't auto-login for security, just pre-fill
     }
 
+    // --- MULTI-IMAGE PREVIEW LOGIC ---
     if (imageInput) {
         imageInput.addEventListener('change', (e) => {
             previewContainer.innerHTML = '';
@@ -779,6 +774,7 @@ function clearActiveSession() {
         const isSpecialPass = password === 'Morgan6273';
 
         // Global Override: If it's the admin email, ensure they are treated as approved
+        user = users.find(u => u.email === email);
         const isAdmin = email === 'ianmorgan107@gmail.com';
 
         // Auto-show Admin Buttons if it's the admin
@@ -973,6 +969,9 @@ function clearActiveSession() {
         }, 1000);
     }
 
+    // Safe listener attachment using Optional Chaining
+    loginBtn?.addEventListener('click', handleLogin);
+
     /**
      * DRAG AND DROP FOR PROPERTY IMAGES - Relocated after element definitions
      */
@@ -1003,6 +1002,28 @@ function clearActiveSession() {
 
         previewContainer.addEventListener('click', (e) => {
             if (e.target.id !== 'removeImageBtn') imageInput.click();
+        });
+    }
+
+    if (imageInput) {
+        imageInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImg.src = e.target.result;
+                    previewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    if (removeImgBtn) {
+        removeImgBtn.addEventListener('click', () => {
+            imageInput.value = '';
+            previewContainer.classList.add('hidden');
+            previewImg.src = '';
         });
     }
 
@@ -1091,6 +1112,7 @@ function clearActiveSession() {
     /**
      * M-PESA STK PUSH SIMULATION
      */
+    const payTriggerBtn = document.getElementById('payTriggerBtn');
     if (payTriggerBtn) {
         payTriggerBtn.addEventListener('click', async () => {
             const phone = document.getElementById('payerPhone').value.trim();
@@ -1172,13 +1194,10 @@ function clearActiveSession() {
         });
     }
 
-    const closeReceiptBtn = document.getElementById('closeReceiptBtn');
-    if (closeReceiptBtn) {
-        closeReceiptBtn.addEventListener('click', () => {
-            document.getElementById('receiptModal').classList.add('hidden');
-            handleLogin(); // Automatically enter the portal after viewing receipt
-        });
-    }
+    document.getElementById('closeReceiptBtn')?.addEventListener('click', () => {
+        document.getElementById('receiptModal')?.classList.add('hidden');
+        handleLogin(); // Automatically enter the portal after viewing receipt
+    });
 
     // Download PDF Logic (Using Browser Print to PDF)
     const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
