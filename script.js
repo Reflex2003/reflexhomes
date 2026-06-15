@@ -1868,8 +1868,16 @@ function clearActiveSession() {
     }
 
     function renderAdminGlobalProperties() {
+        const query = document.getElementById('adminPropertySearch')?.value.toLowerCase() || '';
         const tableBody = document.getElementById('adminGlobalPropertyTableBody');
-        tableBody.innerHTML = properties.map(p => {
+        
+        const filtered = properties.filter(p => 
+            (p.type || "").toLowerCase().includes(query) || 
+            (p.town || "").toLowerCase().includes(query) || 
+            (p.neighborhood || "").toLowerCase().includes(query)
+        );
+
+        tableBody.innerHTML = filtered.map(p => {
             const activityDate = p.lastActivity && typeof p.lastActivity.toDate === 'function'
                 ? p.lastActivity.toDate().toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })
                 : '---';
@@ -1895,6 +1903,12 @@ function clearActiveSession() {
     if (adminUserSearch) {
         adminUserSearch.addEventListener('input', renderAdminUsers);
     }
+
+    const adminPropertySearch = document.getElementById('adminPropertySearch');
+    if (adminPropertySearch) {
+        adminPropertySearch.addEventListener('input', renderAdminGlobalProperties);
+    }
+
     const dateFilters = ['adminDateStart', 'adminDateEnd'];
     for(const id of dateFilters) {
         document.getElementById(id)?.addEventListener('change', renderAdminUsers);
