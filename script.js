@@ -638,16 +638,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     /**
      * CUSTOM TOAST SYSTEM
      */
-    function showToast(message, type = 'info', techError = null) {
+    function showToast(message, type = 'info') {
         const container = document.getElementById('toastContainer');
-        if (!container) return;
-
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        
-        if (debugMode && techError) {
-            message += ` | 🛠️ RAW: ${techError}`;
-        }
         
         toast.textContent = message;
         container.appendChild(toast);
@@ -2268,15 +2262,4 @@ function clearActiveSession() {
             showToast(`${isDark ? 'Dark' : 'Light'} Mode Enabled`, 'info');
         });
     });
-
-    // --- DEBUG MODE TOGGLE LOGIC ---
-    const debugToggle = document.getElementById('debugModeToggle');
-    if (debugToggle) {
-        debugToggle.checked = debugMode;
-        debugToggle.addEventListener('change', (e) => {
-            debugMode = e.target.checked;
-            localStorage.setItem('reflex_debug_mode', debugMode);
-            showToast(`Technical Debug Mode ${debugMode ? 'ON' : 'OFF'}`, 'info');
-        });
-    }
 });
