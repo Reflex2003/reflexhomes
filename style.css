@@ -23,12 +23,28 @@ body.dark-mode {
     --glass: blur(15px);
 }
 
+/* HERO BACKGROUND */
+.auth-hero-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: linear-gradient(135deg, #008080 0%, #6366f1 100%);
+    opacity: 0.1;
+}
+
+body.dark-mode .auth-hero-bg {
+    opacity: 0.05;
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
     font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
+    transition: background-color 0.4s ease, color 0.4s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 body {
@@ -40,9 +56,17 @@ body {
 
 .hidden { display: none !important; }
 
+/* ENTRANCE ANIMATIONS */
+@keyframes dropIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.animate-drop { animation: dropIn 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-fade { animation: fadeIn 1.2s ease-out; }
+
 header {
     text-align: center;
     margin-top: 20px;
+    margin-bottom: 30px;
 }
 
 header h1 {
@@ -70,11 +94,51 @@ header h1 {
     margin-bottom: 15px;
 }
 
+/* MODERN ROLE SELECTOR */
 .role-selector {
     display: flex;
-    justify-content: space-around;
-    margin: 20px 0;
+    background: rgba(0,0,0,0.05);
+    padding: 5px;
+    border-radius: 10px;
+    margin-bottom: 20px;
 }
+
+.role-tab {
+    flex: 1;
+    cursor: pointer;
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    transition: all 0.3s;
+}
+
+.role-tab input { display: none; }
+.role-tab:has(input:checked) {
+    background: var(--primary);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+/* PASSWORD PEER (KOALA) */
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.koala-container {
+    position: absolute;
+    right: 15px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    filter: grayscale(1);
+    transition: filter 0.3s;
+}
+
+.koala-container:hover { filter: grayscale(0); }
 
 input[type="text"], input[type="password"], textarea, select {
     width: 100%;
@@ -85,15 +149,6 @@ input[type="text"], input[type="password"], textarea, select {
     font-size: 1rem;
     background: var(--bg-main);
     color: var(--text-main);
-}
-
-.payment-box {
-    background-color: #fff3cd;
-    border: 1px solid #ffeeba;
-    padding: 15px;
-    border-radius: 6px;
-    margin: 15px 0;
-    text-align: center;
 }
 
 /* BUTTONS */
@@ -168,12 +223,50 @@ input[type="text"], input[type="password"], textarea, select {
     cursor: pointer;
 }
 
-/* FILTER BAR */
-.filter-bar {
+/* SEEKER DASHBOARD POLISH */
+.seeker-tabs {
     display: flex;
-    gap: 15px;
-    margin-bottom: 20px;
+    gap: 10px;
+    margin-bottom: 25px;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    padding-bottom: 10px;
 }
+
+.tab-btn {
+    padding: 10px 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    background: var(--primary);
+    color: white;
+}
+
+.filter-bar {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: var(--radius);
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.search-group, .advanced-filters {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.search-group input { flex: 2; margin: 0; }
+.search-group select { flex: 1; margin: 0; }
+.advanced-filters select, .advanced-filters button { flex: 1; margin: 0; }
 
 /* HOUSE HUNTING RESPONSIVE CARDS */
 .property-grid {
@@ -185,12 +278,52 @@ input[type="text"], input[type="password"], textarea, select {
 
 .house-card {
     background: var(--card-bg);
-    color: var(--text-main);
-    backdrop-filter: var(--glass);
-    padding: 20px;
-    border-radius: 8px;
-    border-top: 5px solid #ff4500;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: var(--shadow-md);
+    transition: transform 0.3s ease;
+}
+
+.house-card:hover {
+    transform: translateY(-5px);
+}
+
+.house-image-wrapper {
+    position: relative;
+    height: 200px;
+    width: 100%;
+}
+
+.property-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.price-pill {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    background: var(--primary);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.card-overlay-badges {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    gap: 5px;
+}
+
+.house-info {
+    padding: 15px;
 }
 
 /* ADMIN DATA TABLE UI */
@@ -369,4 +502,12 @@ body.dark-mode tr:hover { background-color: rgba(255, 255, 255, 0.05); }
 .admin-chat-user-item.active, .admin-chat-user-item:hover {
     background: rgba(0, 128, 128, 0.1);
     border-left: 4px solid var(--primary);
+}
+
+/* COMPARE UI */
+.compare-column {
+    background: rgba(0,0,0,0.02);
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid rgba(0,0,0,0.05);
 }

@@ -31,28 +31,24 @@
             <h2>Create an Account / Access Gate</h2>
             
             <div class="role-selector">
-                <label><input type="radio" name="userRole" value="seeker" checked> House Hunter</label>
-                <label><input type="radio" name="userRole" value="landlord"> Landlord</label>
-                <label id="adminRoleWrapper" class="hidden"><input type="radio" name="userRole" value="admin"> Admin</label>
+                <label class="role-tab"><input type="radio" name="userRole" value="seeker" checked><span>Hunter</span></label>
+                <label class="role-tab"><input type="radio" name="userRole" value="landlord"><span>Landlord</span></label>
+                <label id="adminRoleWrapper" class="role-tab hidden"><input type="radio" name="userRole" value="admin"><span>Admin</span></label>
             </div>
 
             <input type="text" id="userEmail" placeholder="Enter Your Email Address">
-            <input type="password" id="userPassword" placeholder="Enter Unique Password From Admin">
             
-            <!-- PAYMENT CONTAINER BLOCK -->
-            <div id="paymentSection" class="payment-box">
-                <p>⚠️ New users must pay to unlock access credentials.</p>
-                
-                <div class="phone-capture-group" style="margin: 12px 0;">
-                    <label for="payerPhone" style="display:block; font-size:0.85rem; margin-bottom:5px; font-weight:bold; color:#555;">
-                        Your Safaricom M-Pesa Number:
-                    </label>
-                    <input type="text" id="payerPhone" placeholder="e.g., 0712345678" style="text-align: center; font-weight: bold; letter-spacing: 1px; margin: 0;">
+            <div class="password-wrapper">
+                <input type="password" id="userPassword" placeholder="Enter Portal Password">
+                <div id="koalaToggle" class="koala-container" title="Peek Password">
+                    <div class="koala">
+                        <div class="ear-l"></div><div class="ear-r"></div>
+                        <div class="eye-l"></div><div class="eye-r"></div>
+                        <div class="nose"></div>
+                    </div>
                 </div>
-                <p id="paymentPromptText" style="font-size: 0.8rem; color: #856404; margin-bottom: 10px;"></p>
-                <button class="btn-pay" id="payTriggerBtn">💰 Pay via M-Pesa Pochi</button>
             </div>
-
+            
             <button class="btn-main" id="loginBtn" type="button">Enter Portal</button>
 
             </div>
@@ -62,7 +58,7 @@
         <div class="customer-care">
             <h3>Need Help? Contact Admin</h3>
             <a href="tel:+254712345678" class="care-btn call">📞 Call Support</a>
-            <a href="sms:+254712345678?body=Hello%20Admin,%20I%20have%20made%20my%20payment..." class="care-btn sms">💬 Send SMS Text</a>
+            <a href="sms:+254712345678?body=Hello%20Admin,%20I%20need%20help%20with..." class="care-btn sms">💬 Send SMS Text</a>
         </div>
     </div>
 
@@ -80,29 +76,59 @@
             </div>
         </div>
         
-        <div class="filter-bar">
-            <select id="locationFilter">
-                <option value="all">All Towns</option>
-                <option value="Nakuru">Nakuru</option>
-                <option value="Eldoret">Eldoret</option>
-                <option value="Nairobi">Nairobi</option>
-            </select>
-            <select id="waterFilter">
-                <option value="all">All Water Statuses</option>
-                <option value="Borehole">24/7 Borehole</option>
-                <option value="Rationed">City Water / Rationed</option>
-            </select>
-            <input type="text" id="keywordSearch" placeholder="Search keywords...">
-            <button id="clearFiltersBtn" class="btn-main" style="width:auto; margin:0;">Clear</button>
+        <!-- SEEKER TAB NAVIGATION -->
+        <div class="seeker-tabs">
+            <button class="tab-btn active" data-tab="discover">🔍 Discover</button>
+            <button class="tab-btn" data-tab="favorites">❤️ Favorites</button>
+            <button class="tab-btn" data-tab="calculator">🧮 Budget Tool</button>
+        </div>
+
+        <!-- SEARCH & FILTER SECTION -->
+        <div id="discoverSection" class="tab-content">
+            <div class="filter-bar glass-effect">
+                <div class="search-group">
+                    <input type="text" id="keywordSearch" placeholder="Search neighborhood, house type...">
+                    <select id="locationFilter">
+                        <option value="all">All Towns</option>
+                        <option value="Nakuru">Nakuru</option>
+                        <option value="Eldoret">Eldoret</option>
+                        <option value="Nairobi">Nairobi</option>
+                    </select>
+                </div>
+                <div class="advanced-filters">
+                    <select id="waterFilter">
+                        <option value="all">Water: Any</option>
+                        <option value="24/7 Borehole">Borehole</option>
+                        <option value="City Water / Rationed">City Water</option>
+                    </select>
+                    <select id="priceSort">
+                        <option value="default">Sort: Newest</option>
+                        <option value="lowToHigh">Price: Low to High</option>
+                        <option value="highToLow">Price: High to Low</option>
+                    </select>
+                    <button id="clearFiltersBtn" class="btn-logout" style="background: var(--text-muted);">Reset</button>
+                </div>
+            </div>
+
+            <main class="property-grid" id="propertyGrid">
+                <!-- House Cards -->
+            </main>
+        </div>
+
+        <!-- BUDGET CALCULATOR SECTION -->
+        <div id="calculatorSection" class="tab-content hidden">
+            <div class="form-container" style="max-width: 600px;">
+                <h3>Rent Affordability Calculator</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Enter your monthly income to see what rent is safe for you.</p>
+                <input type="number" id="budgetInput" placeholder="Enter Monthly Net Income (Ksh)">
+                <div id="calcResultMessage" style="margin-top: 15px; padding: 15px; border-radius: 8px; background: rgba(0, 128, 128, 0.05); border: 1px dashed var(--primary);">
+                    Enter income to see compliance checks...
+                </div>
+                <button id="clearBudgetBtn" class="btn-logout" style="width: auto; margin-top: 10px;">Clear</button>
+            </div>
         </div>
 
         <div id="globalCountdown" class="hidden" style="background: var(--primary); color: white; padding: 10px; text-align: center; border-radius: 8px; margin-bottom: 20px;">
-            Session ends in: <span id="timerMinutes">00</span>:<span id="timerSeconds">00</span>
-        </div>
-
-        <main class="property-grid" id="propertyGrid">
-            <!-- Dynamic House Cards will load here via JavaScript -->
-        </main>
 
         <!-- FEEDBACK ENGINE FORM -->
         <div class="feedback-section" style="background: white; padding: 20px; border-radius: 8px; margin-top: 30px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
@@ -128,10 +154,6 @@
         <div class="admin-sections" style="display: grid; gap: 30px;">
             <!-- Modern Stats Cards -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-                <div class="form-container" style="margin: 0; text-align: center; padding: 20px;">
-                    <h4 style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Total Revenue</h4>
-                    <p id="statRevenue" style="font-size: 1.8rem; font-weight: 800; color: var(--success);">Ksh 0</p>
-                </div>
                 <div class="form-container" style="margin: 0; text-align: center; padding: 20px;">
                     <h4 style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Active Users</h4>
                     <p id="statUsers" style="font-size: 1.8rem; font-weight: 800; color: var(--primary);">0</p>
@@ -183,25 +205,6 @@
                             </tr>
                         </thead>
                         <tbody id="adminGlobalPropertyTableBody"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- ADMIN REVIEWS LIST -->
-            <div>
-                <h3>Received User Feedback</h3>
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Feedback Message Log</th>
-                            </tr>
-                        </thead>
-                        <tbody id="feedbackTableBody">
-                            <tr>
-                                <td style="color: #7f8c8d; text-align: center;">No feedback submitted yet.</td>
-                            </tr>
-                        </tbody>
                     </table>
                 </div>
             </div>
@@ -394,11 +397,29 @@
         </div>
     </div>
 
-    <div id="receiptModal" class="view-panel hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:20000; display:flex; align-items:center; justify-content:center;">
-        <div class="form-container" style="text-align:center;">
-            <div id="receiptContent"></div>
-            <button id="downloadReceiptBtn" class="btn-main">Download Receipt</button>
-            <button id="closeReceiptBtn" class="btn-main" style="background:var(--secondary);">Continue to Portal</button>
+    <!-- 6. COMPARE BAR (Floating at bottom) -->
+    <div id="compareBar" class="hidden" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 15000; background: var(--card-bg); backdrop-filter: var(--glass); padding: 12px 25px; border-radius: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 20px; border: 1px solid var(--primary);">
+        <div id="compareItemsThumb" style="display: flex; gap: 8px;"></div>
+        <div style="font-size: 0.9rem; font-weight: 600;">Select 2 to Compare</div>
+        <button id="runCompareBtn" class="btn-main" style="width: auto; margin: 0; padding: 8px 20px; border-radius: 20px;">Compare Now</button>
+        <button id="clearCompareBtn" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;">✕</button>
+    </div>
+
+    <!-- 7. COMPARE MODAL -->
+    <div id="compareModal" class="view-panel hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:25000; display:flex; align-items:center; justify-content:center; padding: 20px;">
+        <div class="form-container" style="max-width:900px; width: 100%; max-height:90vh; overflow-y:auto; padding: 40px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                <h2 style="margin: 0;">Property Comparison</h2>
+                <button id="closeCompareModal" class="btn-logout" style="width: auto;">Close</button>
+            </div>
+            
+            <div id="compareGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                <!-- Comparison columns injected here -->
+            </div>
+            
+            <div style="margin-top: 30px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                * Prices are monthly rent in Kenyan Shillings.
+            </div>
         </div>
     </div>
 

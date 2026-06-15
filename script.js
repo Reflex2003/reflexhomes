@@ -37,6 +37,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const removeImgBtn = document.getElementById('removeImageBtn');
     const rememberMeCheck = document.getElementById('rememberMe');
 
+    let compareList = []; // Track IDs for comparison
+
     // --- GOOGLE MAPS DARK MODE STYLES ---
     const darkMapStyles = [
         { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
@@ -51,8 +53,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const adminDashboard = document.getElementById('adminDashboard');
     const loginBtn = document.getElementById('loginBtn');
-    const rememberMeCheck = document.getElementById('rememberMe');
-    let droppedFile = null; // Store drag-and-drop file
     const adminNotificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     const adminTypingSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3'); // Bubble pop sound
     let wasAdminTyping = false;
@@ -61,6 +61,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let selectedSchoolCoords = null;
     let sessionEmail = ""; // Persistent session tracker
     let isMaintenanceMode = false;
+    let currentAdminNote = "";
+    let currentEta = null;
+    let countdownInterval = null;
     let typingTimer;
     const sessionId = Math.random().toString(36).substring(7);
 
@@ -343,7 +346,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 adminDashboard.style.opacity = '1';
                 renderAdminUsers();
                 renderAdminGlobalProperties();
-                renderAdminPayments();
                 updateTownDistributionChart();
                 initAdminSupportCenter();
             }, 300);
@@ -647,13 +649,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const saveProperties = async () => { properties = await fetchProperties(); };
     const saveUsers = async () => { users = await fetchUsers(); };
     
-    let payments = [];
-    try {
-        payments = await fetchPayments();
-    } catch (e) {
-        console.error("Initial payments fetch failed:", e);
-    }
-
     /**
      * CUSTOM TOAST SYSTEM
      */
@@ -690,11 +685,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         properties = await fetchProperties(); // Refresh local cache
     }
 
-    async function savePayment(paymentData) {
-        await addDoc(collection(db, "payments"), { ...paymentData, timestamp: serverTimestamp() });
-        payments = await fetchPayments(); // Refresh local cache
-    }
-
     /**
      * IMAGE COMPRESSION HELPER
      * Resizes and compresses image before upload
@@ -727,11 +717,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    async function fetchPayments() {
-        const querySnapshot = await getDocs(collection(db, "payments"));
-        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    }
-
     /**
      * TIMER LOGIC
      */
@@ -756,7 +741,6 @@ function clearActiveSession() {
         try {
             const email = document.getElementById('userEmail').value.trim().toLowerCase();
             const password = document.getElementById('userPassword').value;
-            const mpesaField = document.getElementById('payerPhone').value.trim();
             sessionEmail = email; 
 
             if (!email) {
@@ -820,7 +804,7 @@ function clearActiveSession() {
                     return;
                 }
 
-                if (selectedRole === 'admin' || mpesaField.toLowerCase() === 'kabadi') {
+                if (selectedRole === 'admin') {
                     if (adminUpdateInterval) clearInterval(adminUpdateInterval);
                     adminUpdateInterval = setInterval(renderAdminUsers, 60000);
                     switchToView('admin');
@@ -849,25 +833,9 @@ function clearActiveSession() {
                 const dashboard = selectedRole === 'landlord' ? landlordDashboard : seekerDashboard;
                 dashboard.classList.remove('hidden');
                 if (selectedRole === 'seeker') renderSampleProperties();
-                startSessionTimer(email, 10 * 60, true, selectedRole);
+                startSessionTimer(email, 10 * 60, false, selectedRole);
                 restoreBtn();
                 console.log("Demo login successful.");
-                return;
-            }
-
-            // Access Control: Block Seekers who haven't paid
-            if (selectedRole === 'seeker' && (!user || !user.isApproved) && !isAdmin) {
-                showToast("Payment Required: Please pay Ksh 50 for access.", "info");
-                document.getElementById('paymentSection').classList.remove('hidden');
-                restoreBtn();
-                return;
-            }
-
-            // Block Landlords who haven't paid (if they are new)
-            if (selectedRole === 'landlord' && (!user || !user.isApproved) && !isAdmin) {
-                showToast("Payment Required: Activation fee is Ksh 300.", "info");
-                document.getElementById('paymentSection').classList.remove('hidden');
-                restoreBtn();
                 return;
             }
 
@@ -882,12 +850,10 @@ function clearActiveSession() {
             if (selectedRole === 'landlord') {
                 landlordDashboard.classList.remove('hidden');
                 renderLandlordProperties();
-                updateStatusBadges('landlord', user?.isApproved);
             } else {
                 seekerDashboard.classList.remove('hidden');
                 renderSampleProperties();
-                updateStatusBadges('seeker', user?.isApproved);
-                if (user?.isApproved) startSessionTimer(email, 18 * 60 * 60, false, 'seeker');
+                startSessionTimer(email, 18 * 60 * 60, false, 'seeker');
             }
             
             restoreBtn();
@@ -914,20 +880,6 @@ function clearActiveSession() {
         const countdownEl = document.getElementById('globalCountdown');
         const minEl = document.getElementById('timerMinutes');
         const secEl = document.getElementById('timerSeconds');
-        const buyBtn = document.getElementById('timerBuyBtn');
-        const badgeId = role === 'landlord' ? 'landlordStatusBadge' : 'seekerStatusBadge';
-        const badge = document.getElementById(badgeId);
-
-        if (isDemo) {
-            if (badge) {
-                badge.textContent = "DEMO";
-                badge.style.backgroundColor = "#000";
-                badge.style.color = "#fff";
-            }
-            if (buyBtn) buyBtn.classList.remove('hidden');
-        } else {
-            if (buyBtn) buyBtn.classList.add('hidden');
-        }
 
         countdownEl.classList.remove('hidden');
 
@@ -1001,7 +953,6 @@ function clearActiveSession() {
             previewContainer.classList.remove('drag-over');
             const file = e.dataTransfer.files[0];
             if (file && file.type.startsWith('image/')) {
-                droppedFile = file;
                 const reader = new FileReader();
                 reader.onload = (re) => {
                     previewImg.src = re.target.result;
@@ -1016,20 +967,6 @@ function clearActiveSession() {
         });
     }
 
-    if (imageInput) {
-        imageInput.addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    previewImg.src = e.target.result;
-                    previewContainer.classList.remove('hidden');
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-
     if (removeImgBtn) {
         removeImgBtn.addEventListener('click', () => {
             imageInput.value = '';
@@ -1038,70 +975,6 @@ function clearActiveSession() {
         });
     }
 
-    // --- 1.1 PAYMENT VISIBILITY LOGIC ---
-    const updatePaymentVisibility = () => {
-        const email = document.getElementById('userEmail').value.trim().toLowerCase();
-        const roleElement = document.querySelector('input[name="userRole"]:checked');
-        if (!roleElement) return;
-        
-        const role = roleElement.value;
-        const user = users.find(u => u.email === email);
-        const paymentSection = document.getElementById('paymentSection');
-        const promptText = document.getElementById('paymentPromptText');
-        const payBtn = document.getElementById('payTriggerBtn');
-        const phoneInput = document.getElementById('payerPhone');
-        
-        // Admin Logic for Radio Buttons and Payment Box
-        const adminWrapper = document.getElementById('adminRoleWrapper');
-        if (adminWrapper) {
-            adminWrapper.classList.toggle('hidden', email !== 'ianmorgan107@gmail.com');
-        }
-
-        if (email === 'ianmorgan107@gmail.com') {
-            promptText.innerHTML = `🛡️ <strong>Admin Verification:</strong> Select your role above. No payment is required for this account.`;
-            if (phoneInput) phoneInput.placeholder = "Bypass Mode Active";
-            paymentSection.classList.add('hidden');
-        } else {
-            if (phoneInput) phoneInput.placeholder = "0712345678";
-            if (role === 'landlord' || role === 'admin') {
-                promptText.innerHTML = `⚠️ New landlords must pay a one-time access fee of <strong>Ksh 300</strong>.`;
-            } else {
-                promptText.innerHTML = `⚠️ New seekers must pay a one-time access fee of <strong>Ksh 50</strong>.`;
-            }
-        }
-
-        // Show payment section for new users, unapproved users, or the Admin email (to allow keyword entry)
-        if (email === 'ianmorgan107@gmail.com' || !user || !user.isApproved) {
-            paymentSection.classList.remove('hidden');
-            if (payBtn) payBtn.classList.remove('hidden');
-        } else {
-            paymentSection.classList.add('hidden');
-        }
-    };
-
-    /**
-     * Updates the Premium/Standard UI badges in the dashboards
-     */
-    function updateStatusBadges(role, isApproved) {
-        const badgeId = role === 'landlord' ? 'landlordStatusBadge' : 'seekerStatusBadge';
-        const badge = document.getElementById(badgeId);
-        if (!badge) return;
-
-        if (isApproved) {
-            badge.textContent = "✨ Premium Account";
-            badge.style.backgroundColor = "#dcfce7";
-            badge.style.color = "#15803d";
-        } else {
-            badge.textContent = "🔓 Standard (Unpaid)";
-            badge.style.backgroundColor = "#fee2e2";
-            badge.style.color = "#b91c1c";
-        }
-    }
-
-    document.querySelectorAll('input[name="userRole"]').forEach(r => r.addEventListener('change', updatePaymentVisibility));
-    document.getElementById('userEmail').addEventListener('input', updatePaymentVisibility);
-
-    /**
      * Creates and injects the success animation overlay
      */
     function showSuccessAnimation() {
@@ -1120,115 +993,6 @@ function clearActiveSession() {
         return overlay;
     }
 
-    /**
-     * M-PESA STK PUSH SIMULATION
-     */
-    const payTriggerBtn = document.getElementById('payTriggerBtn');
-    if (payTriggerBtn) {
-        payTriggerBtn.addEventListener('click', async () => {
-            const phone = document.getElementById('payerPhone').value.trim();
-            const email = document.getElementById('userEmail').value.trim().toLowerCase();
-            const role = document.querySelector('input[name="userRole"]:checked').value;
-
-            if (!email) {
-                showToast("Please enter your email address first.", "error");
-                return;
-            }
-            if (!phone || phone.length < 10) {
-                showToast("Please enter a valid M-Pesa number.", "error");
-                return;
-            }
-
-            const amount = role === 'landlord' ? 300 : 50;
-
-            payTriggerBtn.disabled = true;
-            const originalText = payTriggerBtn.innerHTML;
-            payTriggerBtn.innerHTML = '<span class="btn-spinner"></span> Processing Payment...';
-
-            // Simulate network delay and user interaction
-            setTimeout(() => {
-                payTriggerBtn.innerHTML = '<span class="btn-spinner"></span> Awaiting PIN...';
-                
-                setTimeout(async () => {
-                    const overlay = showSuccessAnimation();
-                    
-                    // Update status in Firestore
-                    let user = users.find(u => u.email === email);
-                    if (user && user.id) {
-                        const userRef = doc(db, "users", user.id);
-                        await updateDoc(userRef, { 
-                            isApproved: true,
-                            updatedAt: serverTimestamp()
-                        });
-                    } else {
-                        await addDoc(collection(db, "users"), { 
-                            email, 
-                            role, 
-                            isApproved: true,
-                            createdAt: serverTimestamp() 
-                        });
-                    }
-                    await saveUsers(); // Refresh local cache from Firestore
-
-                    // Generate Mock Receipt Data
-                    const transactionId = "BH" + Math.random().toString(36).substring(2, 10).toUpperCase();
-                    const now = new Date().toLocaleString();
-                    
-                    // Record the payment in Firestore
-                    await savePayment({
-                        reference: transactionId,
-                        email: email,
-                        phone: phone,
-                        amount: `Ksh ${amount}.00`,
-                        date: now
-                    });
-
-                    document.getElementById('receiptContent').innerHTML = `
-                        <div class="receipt-field"><span>Merchant:</span> <strong>Baraka Homes</strong></div>
-                        <div class="receipt-field"><span>Reference:</span> <strong>${transactionId}</strong></div>
-                        <div class="receipt-field"><span>Amount:</span> <strong>Ksh ${amount}.00</strong></div>
-                        <div class="receipt-field"><span>Phone:</span> <strong>${phone}</strong></div>
-                        <div class="receipt-field"><span>Date:</span> <strong>${now}</strong></div>
-                    `;
-
-                    setTimeout(() => {
-                        overlay.remove();
-                        payTriggerBtn.disabled = false;
-                        payTriggerBtn.innerHTML = originalText;
-                        document.getElementById('paymentSection').classList.add('hidden');
-                        renderAdminPayments(); // Refresh admin payments if admin is viewing
-                        document.getElementById('receiptModal').classList.remove('hidden');
-                        updateStatusBadges(role, true);
-                    }, 2000);
-                }, 3000); // 3s for user to enter PIN
-            }, 2000); // 2s for STK to arrive
-        });
-    }
-
-    document.getElementById('closeReceiptBtn')?.addEventListener('click', () => {
-        document.getElementById('receiptModal')?.classList.add('hidden');
-        handleLogin(); // Automatically enter the portal after viewing receipt
-    });
-
-    // Download PDF Logic (Using Browser Print to PDF)
-    const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
-    if (downloadReceiptBtn) {
-        downloadReceiptBtn.addEventListener('click', () => {
-            const originalContent = document.body.innerHTML;
-            const receiptHTML = document.querySelector('#receiptModal .receipt-card').innerHTML;
-            
-            // Temporarily replace body for printing
-            document.body.innerHTML = `
-                <div style="padding: 40px; font-family: sans-serif;">
-                    ${receiptHTML}
-                    <p style="text-align: center; font-size: 0.8rem; margin-top: 50px;">Thank you for choosing Baraka Homes.</p>
-                </div>
-            `;
-            window.print();
-            location.reload(); // Refresh to restore original state
-        });
-    }
-
     logoutBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             seekerDashboard.classList.add('hidden');
@@ -1239,24 +1003,6 @@ function clearActiveSession() {
             sessionEmail = ""; // Reset session
             clearActiveSession();
             if (adminUpdateInterval) clearInterval(adminUpdateInterval);
-        });
-    });
-
-    // Timer "Buy Full Access" Logic
-    const timerBuyBtn = document.getElementById('timerBuyBtn');
-    if (timerBuyBtn) {
-        timerBuyBtn.addEventListener('click', () => {
-            // Redirect to login gate and show payment
-            logoutBtns[0].click();
-            updatePaymentVisibility();
-        });
-    }
-
-    // --- 2. THEME & UI EXTRAS ---
-    const themeBtns = document.querySelectorAll('.theme-toggle-btn');
-    themeBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
         });
     });
 
@@ -1284,17 +1030,48 @@ function clearActiveSession() {
     if (budgetInput) {
         budgetInput.addEventListener('input', () => {
             const budget = parseFloat(budgetInput.value);
-            if (budget > 0) {
-                calcResultMessage.textContent = `Scanning listings for Ksh ${budget.toLocaleString()} budget...`;
-            } else {
-                calcResultMessage.textContent = "Enter a budget amount above to run compliance checks...";
+            if (!budget || budget <= 0) {
+                calcResultMessage.innerHTML = "Enter income to see compliance checks...";
+                return;
             }
+            const maxRent = budget * 0.3; // Standard 30% rule
+            const limitRent = budget * 0.4; // 40% threshold
+            
+            calcResultMessage.innerHTML = `
+                <div style="text-align:left;">
+                    <p>✅ Ideal Rent (30%): <strong>Ksh ${maxRent.toLocaleString()}</strong></p>
+                    <p>⚠️ Upper Limit (40%): <strong>Ksh ${limitRent.toLocaleString()}</strong></p>
+                    <hr style="margin: 10px 0; border: 0; border-top: 1px solid rgba(0,0,0,0.1);">
+                    <p style="font-size: 0.8rem;">We recommend looking for units below <strong>Ksh ${maxRent.toLocaleString()}</strong> to maintain financial health.</p>
+                </div>
+            `;
         });
         clearBudgetBtn.addEventListener('click', () => {
             budgetInput.value = '';
-            calcResultMessage.textContent = "Enter a budget amount above to run compliance checks...";
+            calcResultMessage.innerHTML = "Enter income to see compliance checks...";
         });
     }
+
+    // --- SEEKER TAB SWITCHING LOGIC ---
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const tab = btn.getAttribute('data-tab');
+            
+            document.getElementById('discoverSection').classList.toggle('hidden', tab === 'calculator');
+            document.getElementById('calculatorSection').classList.toggle('hidden', tab !== 'calculator');
+            
+            if (tab === 'favorites') {
+                document.getElementById('favoritesFilter').value = 'favorites';
+                renderSampleProperties();
+            } else if (tab === 'discover') {
+                document.getElementById('favoritesFilter').value = 'all';
+                renderSampleProperties();
+            }
+        });
+    });
 
     // --- 4. DATA RENDERING ---
     const locationFilter = document.getElementById('locationFilter');
@@ -1387,12 +1164,8 @@ function clearActiveSession() {
 
     function renderSampleProperties() {
         const town = locationFilter ? locationFilter.value : 'all';
-        const neighborhood = neighborhoodFilter ? neighborhoodFilter.value : 'all';
-        const water = waterFilter ? waterFilter.value : 'all';
-        const distanceMax = distanceFilter ? distanceFilter.value : 'all';
         const keyword = keywordSearch ? keywordSearch.value.toLowerCase().trim() : '';
         const sortOrder = priceSort ? priceSort.value : 'default';
-        const showFavoritesOnly = favoritesFilter ? favoritesFilter.value === 'favorites' : false;
 
         const propertyGrid = document.getElementById('propertyGrid');
 
@@ -1404,33 +1177,6 @@ function clearActiveSession() {
         `).join('');
         
         setTimeout(() => {
-            // Real-time image preview logic
-            const imageInput = document.getElementById('newImage');
-            const previewContainer = document.getElementById('imagePreviewContainer');
-            const previewImg = document.getElementById('imagePreview');
-            const removeImgBtn = document.getElementById('removeImageBtn');
-
-            if (imageInput) {
-                imageInput.addEventListener('change', function() {
-                    const file = this.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            previewImg.src = e.target.result;
-                            previewContainer.classList.remove('hidden');
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                });
-            }
-
-            if (removeImgBtn) {
-                removeImgBtn.addEventListener('click', () => {
-                    imageInput.value = '';
-                    previewContainer.classList.add('hidden');
-                    previewImg.src = '';
-                });
-            }
 
             const favorites = JSON.parse(localStorage.getItem('baraka_favorites') || '[]');
             
@@ -1489,6 +1235,11 @@ function clearActiveSession() {
                 const boostBadgeHtml = h.isBoosted ? `<span class="boost-badge">🚀 FEATURED</span>` : '';
                 const cardClass = h.isBoosted ? 'house-card boosted' : 'house-card';
 
+                // Compare Button Logic
+                const isSelected = compareList.includes(String(h.id));
+                const compareBtnText = isSelected ? '✅ Added' : '⚖️ Compare';
+                const compareBtnColor = isSelected ? 'var(--primary)' : '#64748b';
+
                 // New Badge Logic (Created within last 24 hours)
                 const isNew = h.id && (Date.now() - Number(h.id) < 86400000);
                 const newBadgeHtml = isNew ? `<span class="new-badge">NEW</span>` : '';
@@ -1513,6 +1264,11 @@ function clearActiveSession() {
                         <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
                             <div style="display: flex; gap: 8px;">
                                 <button class="btn-main view-details-btn" data-id="${h.id}" style="flex: 1;">View Details ${h.isVerified ? '<span class="golden-tick" title="Verified Listing">✔</span>' : ''}</button>
+                                <button class="btn-main compare-toggle-btn" data-id="${h.id}" style="flex: 1; background-color: ${compareBtnColor};">
+                                    ${compareBtnText}
+                                </button>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
                                 <a href="tel:${h.landlordPhone}" class="btn-main" style="flex: 1; background-color: #2563eb; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px;">📞 Contact</a>
                             </div>
                             <div style="display: flex; gap: 8px;">
@@ -1591,14 +1347,6 @@ function clearActiveSession() {
                 uploadHouseBtn.innerHTML = originalBtnText;
             };
 
-            if ((!user || !user.isApproved) && email !== 'ianmorgan107@gmail.com') {
-                showToast("Activation Required: Please pay the Ksh 300 fee.", "error");
-                document.getElementById('authGate').classList.remove('hidden');
-                document.getElementById('landlordDashboard').classList.add('hidden');
-                restoreBtn();
-                return;
-            }
-
             if (!town || !price || !landlordPhone) {
                 showToast("Please fill in all required fields.", "error");
                 restoreBtn();
@@ -1665,7 +1413,6 @@ function clearActiveSession() {
             }
             
             restoreBtn();
-            droppedFile = null;
             renderLandlordProperties();
         });
     }
@@ -1685,7 +1432,6 @@ function clearActiveSession() {
         document.getElementById('newLng').value = '';
         document.getElementById('newImage').value = '';
         document.getElementById('imagePreviewContainer').classList.add('hidden');
-        droppedFile = null;
         document.getElementById('imagePreview').src = '';
         document.querySelectorAll('.amenity-check').forEach(el => el.checked = false);
     }
@@ -1702,8 +1448,6 @@ function clearActiveSession() {
         if (deleteBtn) {
             const id = deleteBtn.getAttribute('data-id');
             if (confirm("Are you sure you want to delete this listing?")) {
-                properties = properties.filter(p => p.id !== id);
-                saveProperties();
                 renderLandlordProperties();
             }
         }
@@ -1807,26 +1551,6 @@ function clearActiveSession() {
                 </td>
             </tr>
         `}).join('');
-    }
-
-    function renderAdminPayments() {
-        const tableBody = document.getElementById('adminPaymentTableBody');
-        if (!tableBody) return;
-
-        // Sort payments by timestamp (newest first)
-        const processedPayments = [...payments].sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-
-        tableBody.innerHTML = processedPayments.map(p => {
-            const paymentDate = p.timestamp && typeof p.timestamp.toDate === 'function' ? p.timestamp.toDate().toLocaleString('en-KE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : p.date;
-            
-            return `
-            <tr>
-                <td><code style="background: #f1f5f9; padding: 2px 5px; border-radius: 4px;">${p.reference}</code></td>
-                <td>${p.email}</td>
-                <td style="color: #16a34a; font-weight: 700;">${p.amount}</td>
-                <td><small>${paymentDate}</small></td>
-            </tr>
-        `}).join('') || `<tr><td colspan="4" style="text-align: center; color: var(--subtext-color);">No transactions recorded yet.</td></tr>`;
     }
 
     /**
@@ -1966,7 +1690,6 @@ function clearActiveSession() {
         const editListingBtn = e.target.closest('.edit-listing-btn');
         const toggleBanBtn = e.target.closest('.toggle-ban-btn');
         const boostListingBtn = e.target.closest('.boost-listing-btn');
-
         if (deleteUserBtn) {
             const email = deleteUserBtn.getAttribute('data-email');
             const userToDelete = users.find(u => u.email === email);
@@ -2033,56 +1756,18 @@ function clearActiveSession() {
 
         if (boostListingBtn) {
             const id = boostListingBtn.getAttribute('data-id');
-            const phone = prompt("Enter M-Pesa Number to pay Ksh 100 for a 7-day listing boost:");
-            
-            if (phone && phone.length >= 10) {
-                boostListingBtn.disabled = true;
-                boostListingBtn.innerHTML = '<span class="btn-spinner"></span>...';
-                
-                showToast("Requesting Ksh 100 boost payment...", "info");
-                
-                // Simulate Payment Delay
-                setTimeout(async () => {
-                    try {
-                        const propertyRef = doc(db, "properties", id);
-                        await updateDoc(propertyRef, { 
-                            isBoosted: true, 
-                            boostedAt: serverTimestamp(),
-                            lastActivity: serverTimestamp() // Refresh activity so it hits the top
-                        });
-                        showToast("Listing Boosted Successfully! 🚀", "success");
-                        await saveProperties();
-                        renderLandlordProperties();
-                    } catch (err) {
-                        console.error(err);
-                        showToast("Failed to process boost.", "error");
-                        boostListingBtn.disabled = false;
-                    }
-                }, 3000);
-            }
+            const propertyRef = doc(db, "properties", id);
+            await updateDoc(propertyRef, { 
+                isBoosted: true, 
+                boostedAt: serverTimestamp(),
+                lastActivity: serverTimestamp()
+            });
+            showToast("Listing Boosted! 🚀", "success");
+            await saveProperties();
+            renderLandlordProperties();
         }
 
     });
-
-    // Custom Delete Modal Action Listeners
-    if (confirmDeleteBtn) {
-        confirmDeleteBtn.addEventListener('click', () => {
-            if (userToDeleteId) {
-                const userRef = doc(db, "users", userToDeleteId);
-                deleteDoc(userRef)
-                    .then(() => {
-                        saveUsers().then(() => renderAdminUsers());
-                        deleteConfirmationModal.classList.add('hidden');
-                        showToast("User permanently deleted.", "success");
-                    })
-                    .catch(err => {
-                        console.error("Error removing user:", err);
-                        showToast("Failed to remove user.", "error");
-                    });
-            }
-        });
-    }
-    if (cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', () => deleteConfirmationModal.classList.add('hidden'));
 
     // --- 6. UTILITY: COPY TO CLIPBOARD ---
     document.addEventListener('click', (e) => {
@@ -2126,6 +1811,78 @@ function clearActiveSession() {
         }
     });
 
+    // --- 9. COMPARE LOGIC ---
+    document.addEventListener('click', (e) => {
+        const compareBtn = e.target.closest('.compare-toggle-btn');
+        if (!compareBtn) return;
+
+        const id = compareBtn.getAttribute('data-id');
+        if (compareList.includes(id)) {
+            compareList = compareList.filter(item => item !== id);
+        } else {
+            if (compareList.length >= 2) {
+                showToast("You can only compare 2 properties at a time.", "info");
+                return;
+            }
+            compareList.push(id);
+        }
+        updateCompareBar();
+        renderSampleProperties(); // Refresh UI to update button states
+    });
+
+    function updateCompareBar() {
+        const bar = document.getElementById('compareBar');
+        const thumbContainer = document.getElementById('compareItemsThumb');
+        
+        if (compareList.length === 0) {
+            bar.classList.add('hidden');
+            return;
+        }
+
+        bar.classList.remove('hidden');
+        thumbContainer.innerHTML = compareList.map(id => {
+            const h = properties.find(p => String(p.id) === id);
+            return `<div style="width:30px; height:30px; border-radius:50%; background:url('${h?.imageUrl || ''}') center/cover; border:2px solid white;"></div>`;
+        }).join('');
+
+        document.getElementById('runCompareBtn').disabled = compareList.length < 2;
+    }
+
+    document.getElementById('clearCompareBtn')?.addEventListener('click', () => {
+        compareList = [];
+        updateCompareBar();
+        renderSampleProperties();
+    });
+
+    document.getElementById('runCompareBtn')?.addEventListener('click', () => {
+        const items = compareList.map(id => properties.find(p => String(p.id) === id));
+        const grid = document.getElementById('compareGrid');
+        
+        grid.innerHTML = items.map(h => `
+            <div class="compare-column">
+                <img src="${h.imageUrl}" style="width:100%; height:180px; object-fit:cover; border-radius:12px; margin-bottom:15px;">
+                <h3 style="color:var(--primary);">${h.type}</h3>
+                <p style="font-size:1.2rem; font-weight:800; margin: 10px 0;">Ksh ${h.price.toLocaleString()}</p>
+                
+                <div style="display:flex; flex-direction:column; gap:12px; margin-top:20px; text-align:left; border-top:1px solid #eee; padding-top:15px;">
+                    <div><span style="color:var(--text-muted);">Town:</span> <br><strong>${h.town}</strong></div>
+                    <div><span style="color:var(--text-muted);">Neighborhood:</span> <br><strong>${h.neighborhood}</strong></div>
+                    <div><span style="color:var(--text-muted);">Water:</span> <br><strong>${h.water}</strong></div>
+                    <div><span style="color:var(--text-muted);">Distance to Road:</span> <br><strong>${h.distance}m</strong></div>
+                    <div><span style="color:var(--text-muted);">Status:</span> <br><strong>${h.isVerified ? '✨ Verified' : 'Standard'}</strong></div>
+                </div>
+                
+                <a href="tel:${h.landlordPhone}" class="btn-main" style="margin-top:25px; display:block; text-align:center; text-decoration:none;">📞 Call Landlord</a>
+            </div>
+        `).join('');
+
+        document.getElementById('compareModal').classList.remove('hidden');
+    });
+
+    document.getElementById('closeCompareModal')?.addEventListener('click', () => {
+        document.getElementById('compareModal').classList.add('hidden');
+    });
+
     // --- 8. UTILITY: VIEW DETAILS MODAL ---
     const detailsModal = document.getElementById('detailsModal');
     const modalContent = document.getElementById('modalContent');
@@ -2144,8 +1901,7 @@ function clearActiveSession() {
             
             const email = document.getElementById('userEmail').value.trim().toLowerCase();
             const user = users.find(u => u.email === email);
-            const hasPaid = (user && user.isApproved) || email === 'ianmorgan107@gmail.com';
-
+            const hasPaid = true;
             if (h) {
                 const location = h.area || (h.neighborhood + ', ' + h.town);
                 // Render Carousel or Single Image
@@ -2171,13 +1927,7 @@ function clearActiveSession() {
                         <p><strong>Water Status:</strong> ${h.water}</p>
                         <p><strong>Distance to Road:</strong> ${h.distance} meters</p>
                         <p><strong>Verification:</strong> ${h.isVerified ? 'Premium Verified' : 'Standard Listing'}</p>
-                        <p><strong>Landlord Phone:</strong> ${hasPaid ? h.landlordPhone : '07xxxxxx (Pay Ksh 50 to Unlock)'}</p>
-                        ${!hasPaid ? `
-                            <div style="background: #fffbeb; padding: 10px; border-radius: 8px; margin-top: 15px; border: 1px solid #fef08a;">
-                                <p style="font-size: 0.8rem; margin: 0; color: #854d0e;">⚠️ You are viewing as a Standard User. Phone numbers are hidden until payment is confirmed.</p>
-                            </div>
-                        ` : ''}
-                        
+                        <p><strong>Landlord Phone:</strong> ${h.landlordPhone}</p>
                         <!-- Map Section -->
                         <div id="propertyMap" class="property-map-container ${h.lat && h.lng ? '' : 'hidden'}"></div>
                         ${!(h.lat && h.lng) ? '<p style="font-size: 0.8rem; color: var(--subtext-color); margin-top: 10px;">📍 Map location not provided by landlord.</p>' : ''}
