@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const previewImg = document.getElementById('imagePreview');
     const removeImgBtn = document.getElementById('removeImageBtn');
     const rememberMeCheck = document.getElementById('rememberMe');
+    const mpesaInput = document.getElementById('mpesaNumber');
 
     let compareList = []; // Track IDs for comparison
 
@@ -346,6 +347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 adminDashboard.classList.remove('hidden');
                 adminDashboard.style.opacity = '1';
                 renderAdminUsers();
+                renderAdminPayments();
                 renderAdminGlobalProperties();
                 renderAdminPayments();
                 updateTownDistributionChart();
@@ -538,6 +540,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const logoutBtns = document.querySelectorAll('.btn-logout');
     let sessionInterval;
+    let mpesaTimerInterval;
     let adminUpdateInterval;
     let townDistributionChart;
 
@@ -755,10 +758,166 @@ function clearActiveSession() {
     }
 
     /**
+     * INITIATE PAYMENT FLOW
+     */
+    async function handlePaymentInitiation() {
+        const email = document.getElementById('userEmail').value.trim().toLowerCase();
+        const phone = mpesaInput.value.trim();
+        const selectedRole = document.querySelector('input[name="userRole"]:checked')?.value;
+        const amount = selectedRole === 'landlord' ? 300 : 50;
+
+        if (!email || !phone) {
+            showToast("Please provide both email and M-Pesa number.", "error");
+            return;
+        }
+
+        try {
+            // Create payment request in Firestore immediately as per requirement
+            const payRef = doc(db, "payments", email);
+            await setDoc(payRef, {
+                email,
+                phone,
+                role: selectedRole,
+                amount,
+                status: 'pending',
+                timestamp: serverTimestamp()
+            });
+
+            // Setup and show the custom M-Pesa Modal
+            const modal = document.getElementById('mpesaModal');
+            const amountEl = document.getElementById('mpesaModalAmount');
+            const phoneEl = document.getElementById('mpesaModalPhone');
+            const pinInput = document.getElementById('mpesaPinInput');
+            
+            if(amountEl) amountEl.innerHTML = `Amount to Pay: <strong>Ksh ${amount}</strong>`;
+            if(phoneEl) phoneEl.innerHTML = `Source Number: <strong>${phone}</strong>`;
+            if(pinInput) pinInput.value = '';
+            
+            modal.classList.remove('hidden');
+
+            // --- TRANSACTION TIMEOUT LOGIC ---
+            let timeLeft = 60;
+            const timerEl = document.getElementById('mpesaTimer');
+            if (mpesaTimerInterval) clearInterval(mpesaTimerInterval);
+            
+            const updateTimerDisplay = () => {
+                if (timerEl) timerEl.innerHTML = `Expires in: <strong style="color: var(--danger);">${timeLeft}s</strong>`;
+            };
+            
+            updateTimerDisplay();
+            mpesaTimerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+                if (timeLeft <= 0) {
+                    clearInterval(mpesaTimerInterval);
+                    modal.classList.add('hidden');
+                    showToast("Transaction timed out. Please try again.", "error");
+                }
+            }, 1000);
+
+            // Local logic for modal buttons
+            document.getElementById('confirmMpesaBtn').onclick = async () => {
+                if (pinInput.value.length === 4) {
+                    clearInterval(mpesaTimerInterval);
+                    
+                    // Trigger Success UI and Haptic Feedback
+                    document.getElementById('mpesaMainUI').classList.add('hidden');
+                    document.getElementById('mpesaSuccessAnim').classList.remove('hidden');
+                    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+                    // Simulated delay to show the animation
+                    await new Promise(r => setTimeout(r, 2200));
+
+                    showToast("PIN Authorized! Admin will review your payment shortly.", "success");
+                document.getElementById('authStatusMsg').textContent = "Payment request pending admin approval.";
+                document.getElementById('authStatusMsg').classList.remove('hidden');
+                    modal.classList.add('hidden');
+                    
+                    // Reset UI state for next potential transaction
+                    document.getElementById('mpesaMainUI').classList.remove('hidden');
+                    document.getElementById('mpesaSuccessAnim').classList.add('hidden');
+                } else {
+                    showToast("Please enter a valid 4-digit PIN.", "error");
+                    if (navigator.vibrate) navigator.vibrate(200);
+                    const modalContainer = modal.querySelector('.form-container');
+                    if (modalContainer) {
+                        modalContainer.classList.add('shake-animation');
+                        setTimeout(() => modalContainer.classList.remove('shake-animation'), 500);
+                    }
+                }
+            };
+
+            document.getElementById('cancelMpesaBtn').onclick = () => {
+                clearInterval(mpesaTimerInterval);
+                modal.classList.add('hidden');
+                showToast("Transaction window closed. Request remains pending for Admin.", "info");
+            };
+
+        } catch (err) {
+            console.error(err);
+            showToast("Failed to initiate payment request.", "error");
+        }
+    }
+
+    async function renderAdminPayments() {
+        const tableBody = document.getElementById('adminPaymentTableBody');
+        if (!tableBody) return;
+
+        const q = query(collection(db, "payments"), where("status", "==", "pending"));
+        const snap = await getDocs(q);
+        
+        tableBody.innerHTML = snap.docs.map(docSnap => {
+            const d = docSnap.data();
+            return `
+                <tr>
+                    <td>${d.email}</td>
+                    <td>${d.phone}</td>
+                    <td><span class="rule-badge">${d.role}</span></td>
+                    <td>Ksh ${d.amount}</td>
+                    <td>
+                        <button class="btn-pay approve-payment-btn" data-email="${d.email}" data-role="${d.role}" style="padding: 6px 12px; font-size: 0.8rem;">Approve</button>
+                        <button class="btn-logout block-payment-btn" data-email="${d.email}" style="padding: 6px 12px; font-size: 0.8rem; margin-left:5px;">Block</button>
+                    </td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="5" style="text-align:center;">No pending requests</td></tr>';
+    }
+
+    async function approveUserAccess(email, role) {
+        try {
+            const userQ = query(collection(db, "users"), where("email", "==", email));
+            const userSnap = await getDocs(userQ);
+            
+            if (!userSnap.empty) {
+                const userId = userSnap.docs[0].id;
+                const updateData = { isApproved: true };
+                
+                if (role === 'seeker') {
+                    // Set expiry to 24 hours from now
+                    const expiry = new Date();
+                    expiry.setHours(expiry.getHours() + 24);
+                    updateData.expiryTimestamp = expiry;
+                }
+
+                await updateDoc(doc(db, "users", userId), updateData);
+                await deleteDoc(doc(db, "payments", email));
+                showToast(`Approved ${email} as ${role}`, "success");
+                renderAdminPayments();
+                await saveUsers();
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("Approval failed.", "error");
+        }
+    }
+
+    /**
      * Central login processor
      */
     async function handleLogin() {
         console.log("Login attempt initiated: handleLogin() called.");
+        const authStatusMsg = document.getElementById('authStatusMsg');
+        authStatusMsg.classList.add('hidden');
         
         const originalBtnText = loginBtn.innerHTML;
         const restoreBtn = () => {
@@ -766,9 +925,11 @@ function clearActiveSession() {
             loginBtn.innerHTML = originalBtnText;
         };
 
+        const email = document.getElementById('userEmail').value.trim().toLowerCase();
+        const password = document.getElementById('userPassword').value;
+        const phone = mpesaInput.value.trim();
+
         try {
-            const email = document.getElementById('userEmail').value.trim().toLowerCase();
-            const password = document.getElementById('userPassword').value;
             sessionEmail = email; 
 
             if (!email) {
@@ -962,6 +1123,7 @@ function clearActiveSession() {
 
     // Safe listener attachment using Optional Chaining
     loginBtn?.addEventListener('click', handleLogin);
+    document.getElementById('payBtn')?.addEventListener('click', handlePaymentInitiation);
 
     /**
      * DRAG AND DROP FOR PROPERTY IMAGES - Relocated after element definitions
@@ -1732,6 +1894,22 @@ function clearActiveSession() {
         const toggleBanBtn = e.target.closest('.toggle-ban-btn');
         const boostListingBtn = e.target.closest('.boost-listing-btn');
         const viewLogBtn = e.target.closest('.view-log-btn');
+        const approvePayBtn = e.target.closest('.approve-payment-btn');
+        const blockPayBtn = e.target.closest('.block-payment-btn');
+
+        if (approvePayBtn) {
+            const email = approvePayBtn.getAttribute('data-email');
+            const role = approvePayBtn.getAttribute('data-role');
+            await approveUserAccess(email, role);
+        }
+
+        if (blockPayBtn) {
+            const email = blockPayBtn.getAttribute('data-email');
+            await deleteDoc(doc(db, "payments", email));
+            showToast(`Payment request for ${email} rejected.`, "info");
+            renderAdminPayments();
+        }
+
         if (deleteUserBtn) {
             const email = deleteUserBtn.getAttribute('data-email');
             const userToDelete = users.find(u => u.email === email);

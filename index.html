@@ -37,19 +37,20 @@
             </div>
 
             <input type="text" id="userEmail" placeholder="Enter Your Email Address">
+            <input type="text" id="mpesaNumber" placeholder="M-Pesa Number (e.g. 0712345678)">
             
             <div class="password-wrapper">
                 <input type="password" id="userPassword" placeholder="Enter Portal Password">
                 <div id="koalaToggle" class="koala-container" title="Peek Password">
-                    <div class="koala">
-                        <div class="ear-l"></div><div class="ear-r"></div>
-                        <div class="eye-l"></div><div class="eye-r"></div>
-                        <div class="nose"></div>
-                    </div>
+                    <!-- Koala SVG or Div placeholder as per original CSS -->
                 </div>
             </div>
             
-            <button class="btn-main" id="loginBtn" type="button">Enter Portal</button>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button class="btn-pay" id="payBtn" type="button">Make Payment</button>
+                <button class="btn-main" id="loginBtn" type="button" style="margin-top:0;">Enter Portal</button>
+            </div>
+            <p id="authStatusMsg" style="font-size: 0.8rem; text-align: center; margin-top: 10px; color: var(--danger);" class="hidden"></p>
 
             </div>
         </div>
@@ -168,6 +169,25 @@
                 </div>
             </div>
 
+            <!-- PENDING PAYMENTS SECTION -->
+            <div>
+                <h3>💳 Pending Payment Approvals</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User Email</th>
+                                <th>M-Pesa No.</th>
+                                <th>Role</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminPaymentTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
             <div>
                 <h3>Registered System Users</h3>
                 <div class="table-wrapper">
@@ -262,6 +282,45 @@
                 <button class="btn-logout">Log Out</button>
             </div>
         </div>
+
+    <!-- M-PESA PAYMENT MODAL -->
+    <div id="mpesaModal" class="view-panel hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:35000; display:flex; align-items:center; justify-content:center; padding: 20px;">
+        <div class="form-container" style="max-width:400px; width: 100%; text-align: center; border-top: 6px solid #22c55e;">
+            <div style="margin-bottom: 20px;">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/M-PESA_LOGO-01.svg/512px-M-PESA_LOGO-01.svg.png" alt="M-Pesa" style="height: 45px; width: auto;">
+            </div>
+            <h3>Complete M-Pesa Payment</h3>
+            
+            <div id="mpesaMainUI">
+                <p style="font-size: 0.9rem; color: var(--text-muted); margin: 15px 0;">Authorize the transaction to Till: <strong>123456</strong></p>
+                
+                <div style="background: rgba(0,0,0,0.05); padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: left; font-size: 0.85rem;">
+                    <div id="mpesaModalAmount"></div>
+                    <div id="mpesaModalPhone"></div>
+                    <div id="mpesaTimer" style="margin-top: 10px; font-weight: bold; text-align: center;"></div>
+                </div>
+
+                <input type="password" id="mpesaPinInput" placeholder="PIN" maxlength="4">
+                
+                <div style="display: flex; gap: 12px; margin-top: 10px;">
+                    <button id="cancelMpesaBtn" class="btn-logout" style="flex: 1; margin: 0; padding: 12px;">Cancel</button>
+                    <button id="confirmMpesaBtn" class="btn-main" style="flex: 1; margin: 0; background-color: #22c55e; padding: 12px;">Confirm PIN</button>
+                </div>
+            </div>
+
+            <div id="mpesaSuccessAnim" class="hidden" style="padding: 20px 0;">
+                <div class="checkmark-wrapper">
+                    <svg class="checkmark-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                        <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+                        <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                    </svg>
+                </div>
+                <h3 style="color: var(--success); margin-top: 15px;">Payment Authorized!</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Redirecting you shortly...</p>
+            </div>
+        </div>
+    </div>
+
 
         <div class="form-container" style="max-width: 600px; margin: 20px auto;">
             <h3>List a New Rental Unit</h3>
