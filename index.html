@@ -81,12 +81,23 @@
         </div>
         
         <div class="filter-bar">
-            <input type="text" id="townSearch" placeholder="Search town or neighborhood (e.g. Nakuru, Eldoret)...">
+            <select id="locationFilter">
+                <option value="all">All Towns</option>
+                <option value="Nakuru">Nakuru</option>
+                <option value="Eldoret">Eldoret</option>
+                <option value="Nairobi">Nairobi</option>
+            </select>
             <select id="waterFilter">
                 <option value="all">All Water Statuses</option>
                 <option value="Borehole">24/7 Borehole</option>
                 <option value="Rationed">City Water / Rationed</option>
             </select>
+            <input type="text" id="keywordSearch" placeholder="Search keywords...">
+            <button id="clearFiltersBtn" class="btn-main" style="width:auto; margin:0;">Clear</button>
+        </div>
+
+        <div id="globalCountdown" class="hidden" style="background: var(--primary); color: white; padding: 10px; text-align: center; border-radius: 8px; margin-bottom: 20px;">
+            Session ends in: <span id="timerMinutes">00</span>:<span id="timerSeconds">00</span>
         </div>
 
         <main class="property-grid" id="propertyGrid">
@@ -277,6 +288,14 @@
                     <label style="font-size: 0.85rem; font-weight: bold;">Monthly Rent (Ksh):</label>
                     <input type="text" id="newPrice" placeholder="e.g., 12000">
                 </div>
+                <div>
+                    <label style="font-size: 0.85rem; font-weight: bold;">Distance to Road (m):</label>
+                    <input type="number" id="newDistance" placeholder="e.g., 50">
+                </div>
+                <div>
+                    <label style="font-size: 0.85rem; font-weight: bold;">Contact Phone:</label>
+                    <input type="text" id="newLandlordPhone" placeholder="07...">
+                </div>
             </div>
 
             <div style="margin-top: 15px;">
@@ -288,6 +307,11 @@
                 </select>
             </div>
 
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                <input type="hidden" id="newLat">
+                <input type="hidden" id="newLng">
+            </div>
+
             <div style="margin-top: 15px;">
                 <label style="font-size: 0.85rem; font-weight: bold;">Google Maps Dropped Pin Link:</label>
                 <input type="text" id="newMapLink" placeholder="https://google.com...">
@@ -296,7 +320,10 @@
             <div style="margin-top: 15px;">
                 <label style="font-size: 0.85rem; font-weight: bold;">Property Images (Select Multiple):</label>
                 <input type="file" id="newImage" multiple accept="image/*" style="padding: 5px;">
-                <div id="imagePreviewContainer" class="multi-preview-grid hidden"></div>
+                <div id="imagePreviewContainer" class="multi-preview-grid hidden">
+                    <img id="imagePreview" src="" class="preview-item">
+                    <button type="button" id="removeImageBtn" class="btn-logout" style="height:fit-content;">Remove</button>
+                </div>
             </div>
 
             <!-- CHECKBOXES FOR MULTIPLE AMENITIES -->
@@ -312,7 +339,16 @@
                 </div>
             </div>
 
+            <h3 id="landlordFormTitle">List a New Rental Unit</h3>
             <button id="uploadHouseBtn" class="btn-main" style="background-color: #ff4500; margin-top: 20px;">🚀 Publish Listing Instantly</button>
+            <button id="cancelEditBtn" class="btn-logout hidden" style="width:100%; margin-top:10px;">Cancel Editing</button>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Type</th><th>Location</th><th>Price</th><th>Activity</th><th>Actions</th></tr></thead>
+                <tbody id="landlordPropertyTableBody"></tbody>
+            </table>
         </div>
     </div>
 
@@ -349,6 +385,25 @@
         <button onclick="location.reload()" class="btn-main" style="max-width: 200px; margin-top: 30px;">Check Site Status</button>
     </div>
 
-    <script src="script.js"></script>
+    <!-- MODALS -->
+    <div id="detailsModal" class="view-panel hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:20000; display:flex; align-items:center; justify-content:center;">
+        <div class="form-container" style="max-width:600px; max-height:90vh; overflow-y:auto;">
+            <div id="modalContent"></div>
+            <button id="closeModalBtn" class="btn-main">Close Details</button>
+            <button id="modalCloseAction" class="btn-logout" style="width:100%; margin-top:10px;">Exit</button>
+        </div>
+    </div>
+
+    <div id="receiptModal" class="view-panel hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:20000; display:flex; align-items:center; justify-content:center;">
+        <div class="form-container" style="text-align:center;">
+            <div id="receiptContent"></div>
+            <button id="downloadReceiptBtn" class="btn-main">Download Receipt</button>
+            <button id="closeReceiptBtn" class="btn-main" style="background:var(--secondary);">Continue to Portal</button>
+        </div>
+    </div>
+
+    <div id="toastContainer" style="position:fixed; top:20px; right:20px; z-index:30000;"></div>
+
+    <script type="module" src="script.js"></script>
 </body>
 </html>

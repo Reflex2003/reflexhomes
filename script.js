@@ -31,6 +31,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const authGate = document.getElementById('authGate');
     const seekerDashboard = document.getElementById('seekerDashboard');
     const landlordDashboard = document.getElementById('landlordDashboard');
+    const imageInput = document.getElementById('newImage');
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    const previewImg = document.getElementById('imagePreview');
+    const removeImgBtn = document.getElementById('removeImageBtn');
+    const rememberMeCheck = document.getElementById('rememberMe');
 
     // --- GOOGLE MAPS DARK MODE STYLES ---
     const darkMapStyles = [
