@@ -321,36 +321,50 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Hide all dashboards safely
-        [authGate, seekerDashboard, landlordDashboard, adminDashboard].forEach(d => {
-            if (d) d.classList.add('hidden');
+        // Smooth Fade Transition
+        const dashboards = [authGate, seekerDashboard, landlordDashboard, adminDashboard];
+        dashboards.forEach(d => {
+            if (d) {
+                d.style.opacity = '0';
+                d.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => d.classList.add('hidden'), 300);
+            }
         });
 
         if (targetRole === 'admin') {
-            if (!adminDashboard) return;
-            adminDashboard.classList.remove('hidden');
-            renderAdminUsers();
-            renderAdminGlobalProperties();
-            renderAdminPayments();
-            updateTownDistributionChart();
-            initAdminSupportCenter();
+            setTimeout(() => {
+                if (!adminDashboard) return;
+                adminDashboard.classList.remove('hidden');
+                adminDashboard.style.opacity = '1';
+                renderAdminUsers();
+                renderAdminGlobalProperties();
+                renderAdminPayments();
+                updateTownDistributionChart();
+                initAdminSupportCenter();
+            }, 300);
             return;
         }
 
         if (targetRole === 'landlord') {
-            if (!landlordDashboard) return;
-            landlordDashboard.classList.remove('hidden');
-            renderLandlordProperties();
-            updateStatusBadges('landlord', isAdmin); // admin sees as Premium
+            setTimeout(() => {
+                if (!landlordDashboard) return;
+                landlordDashboard.classList.remove('hidden');
+                landlordDashboard.style.opacity = '1';
+                renderLandlordProperties();
+                updateStatusBadges('landlord', isAdmin);
+            }, 300);
             return;
         }
 
         if (targetRole === 'seeker') {
-            if (!seekerDashboard) return;
-            seekerDashboard.classList.remove('hidden');
-            document.getElementById('chatWidget')?.classList.remove('hidden');
-            renderSampleProperties();
-            updateStatusBadges('seeker', isAdmin); // admin sees as Premium
+            setTimeout(() => {
+                if (!seekerDashboard) return;
+                seekerDashboard.classList.remove('hidden');
+                seekerDashboard.style.opacity = '1';
+                document.getElementById('chatWidget')?.classList.remove('hidden');
+                renderSampleProperties();
+                updateStatusBadges('seeker', isAdmin);
+            }, 300);
             return;
         }
     };
@@ -802,32 +816,14 @@ function clearActiveSession() {
                 }
 
                 if (selectedRole === 'admin' || mpesaField.toLowerCase() === 'kabadi') {
-                    authGate.classList.add('hidden');
-                    adminDashboard.classList.remove('hidden');
-                    renderAdminUsers();
-                    renderAdminGlobalProperties();
-                    payments = await fetchPayments(); 
-                    renderAdminPayments();
-                    updateTownDistributionChart();
-
                     if (adminUpdateInterval) clearInterval(adminUpdateInterval);
                     adminUpdateInterval = setInterval(renderAdminUsers, 60000);
+                    switchToView('admin');
                     restoreBtn();
-                    console.log("Admin bypass successful.");
                     return;
                 } else if (selectedRole !== 'admin') {
-                    authGate.classList.add('hidden');
-                    if (selectedRole === 'landlord') {
-                        landlordDashboard.classList.remove('hidden');
-                        renderLandlordProperties();
-                        updateStatusBadges('landlord', true);
-                    } else {
-                        seekerDashboard.classList.remove('hidden');
-                        renderSampleProperties();
-                        updateStatusBadges('seeker', true);
-                    }
+                    switchToView(selectedRole);
                     restoreBtn();
-                    console.log("Admin role-switch successful.");
                     return;
                 }
             }
@@ -1494,15 +1490,16 @@ function clearActiveSession() {
 
                 return `
                     <div class="${cardClass}" data-price="${h.price}">
-                        <div class="house-info">
+                        <div class="house-image-wrapper">
                             ${imageHtml}
-                            <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                                ${newBadgeHtml}
-                                ${boostBadgeHtml}
-                                <span class="verified-badge" style="margin: 0;">${h.isVerified ? 'Premium Listing' : 'Standard Listing'}</span>
+                            <div class="card-overlay-badges">
+                                ${newBadgeHtml} ${boostBadgeHtml}
                             </div>
-                            <h3>${h.type} in ${location}</h3>
-                            <p class="price"><strong>Ksh ${h.price.toLocaleString()}</strong> / month</p>
+                            <span class="price-pill">Ksh ${h.price.toLocaleString()}</span>
+                        </div>
+                        <div class="house-info">
+                            <span class="verified-badge-small">${h.isVerified ? '✨ Verified' : 'Standard'}</span>
+                            <h3>${h.type} at ${location}</h3>
                             <div class="rule-badges">
                                 <span class="rule-badge">${h.water}</span>
                                 <span class="rule-badge" style="background-color: #f1f5f9; color: #475569;">📍 ${h.distance || 0}m from road</span>

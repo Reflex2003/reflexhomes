@@ -20,12 +20,14 @@
 
     <!-- 1. THE ENTRY GATE (LOGIN & REGISTRATION) -->
     <div id="authGate" class="view-panel">
-        <header>
-            <h1>🏠 Baraka Homes</header>
-            <p>Premium Property Hunting for Kenyan Towns</p>
-        </header>
+        <div class="auth-hero-bg"></div>
+        <div class="auth-card-wrapper">
+            <header>
+                <h1 class="animate-drop">🏠 Baraka Homes</h1>
+                <p class="animate-fade">Premium Property Hunting for Kenyan Towns</p>
+            </header>
 
-        <div class="form-container">
+            <div class="form-container glass-effect">
             <h2>Create an Account / Access Gate</h2>
             
             <div class="role-selector">
@@ -38,7 +40,7 @@
             <input type="password" id="userPassword" placeholder="Enter Unique Password From Admin">
             
             <!-- PAYMENT CONTAINER BLOCK -->
-            <div class="payment-box">
+            <div id="paymentSection" class="payment-box">
                 <p>⚠️ New users must pay to unlock access credentials.</p>
                 
                 <div class="phone-capture-group" style="margin: 12px 0;">
@@ -47,12 +49,13 @@
                     </label>
                     <input type="text" id="payerPhone" placeholder="e.g., 0712345678" style="text-align: center; font-weight: bold; letter-spacing: 1px; margin: 0;">
                 </div>
-
+                <p id="paymentPromptText" style="font-size: 0.8rem; color: #856404; margin-bottom: 10px;"></p>
                 <button class="btn-pay" id="payTriggerBtn">💰 Pay via M-Pesa Pochi</button>
             </div>
 
             <button class="btn-main" id="loginBtn" type="button">Enter Portal</button>
 
+            </div>
         </div>
 
         <!-- CUSTOMER CARE SHORTCUTS -->
@@ -122,23 +125,52 @@
                     <h4 style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Active Users</h4>
                     <p id="statUsers" style="font-size: 1.8rem; font-weight: 800; color: var(--primary);">0</p>
                 </div>
+                <div class="form-container" style="margin: 0; text-align: center; padding: 20px;">
+                    <h4 style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Total Seekers</h4>
+                    <p id="totalSeekersCount" style="font-size: 1.8rem; font-weight: 800; color: var(--primary);">0</p>
+                </div>
+                <div class="form-container" style="margin: 0; text-align: center; padding: 20px;">
+                    <h4 style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Total Landlords</h4>
+                    <p id="totalLandlordsCount" style="font-size: 1.8rem; font-weight: 800; color: var(--secondary);">0</p>
+                </div>
             </div>
 
             <div>
                 <h3>Registered System Users</h3>
                 <div class="table-wrapper">
-                    <table id="userTable">
+                    <table>
                         <thead>
                             <tr>
+                                <th>Status</th>
                                 <th>User Email</th>
-                                <th>Account Role</th>
-                                <th>Time Remaining</th>
-                                <th>Actions Panel</th>
+                                <th>Role & Status</th>
+                                <th>Joined</th>
+                                <th>Last Seen</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="userTableBody">
+                        <tbody id="adminUserTableBody">
                             <!-- User database rows dynamically generate here -->
                         </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- GLOBAL PROPERTY MANAGEMENT -->
+            <div>
+                <h3>Global Property Inventory</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Location</th>
+                                <th>Price</th>
+                                <th>Activity</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminGlobalPropertyTableBody"></tbody>
                     </table>
                 </div>
             </div>
