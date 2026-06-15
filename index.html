@@ -180,6 +180,7 @@
                                 <th>Joined</th>
                                 <th>Last Seen</th>
                                 <th>Actions</th>
+                                <th>Log</th>
                             </tr>
                         </thead>
                         <tbody id="adminUserTableBody">
@@ -422,6 +423,19 @@
             </div>
         </div>
     </div>
+
+    <!-- MODERATION LOG MODAL -->
+    <div id="moderationLogModal" class="view-panel hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:26000; display:flex; align-items:center; justify-content:center; padding: 20px;">
+        <div class="form-container" style="max-width:700px; width: 100%; max-height:90vh; overflow-y:auto; padding: 30px;">
+            <h2 id="moderationLogModalTitle" style="margin-bottom: 20px;">Moderation Log for User</h2>
+            <div id="moderationLogContent" style="max-height: 500px; overflow-y: auto; background: rgba(0,0,0,0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1);">
+                <!-- Logs will be injected here -->
+                <p style="text-align: center; color: var(--text-muted);">Loading logs...</p>
+            </div>
+            <button id="closeModerationLogModalBtn" class="btn-main" style="margin-top: 20px;">Close</button>
+        </div>
+    </div>
+
 
     <div id="toastContainer" style="position:fixed; top:20px; right:20px; z-index:30000;"></div>
 

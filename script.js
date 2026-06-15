@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const adminDashboard = document.getElementById('adminDashboard');
     const loginBtn = document.getElementById('loginBtn');
+    let droppedFile = null; // Store drag-and-drop file
     const adminNotificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     const adminTypingSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3'); // Bubble pop sound
     let wasAdminTyping = false;
@@ -308,14 +309,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 await setDoc(maintenanceRef, { active: true, adminNote: note, eta: etaTimestamp, updatedAt: serverTimestamp() }, { merge: true });
-                await logAction(`ACTIVATED Panic Mode. Note: ${note}`);
+                await logAction(`ACTIVATED Panic Mode. Note: "${note}"`);
                 showToast("Maintenance Mode Activated. Site is now down for users.", "error");
             }
         } else {
             // Deactivating panic mode
             if (confirm("Are you sure you want to DEACTIVATE Panic Mode and bring the site back online?")) {
                 await setDoc(maintenanceRef, { active: false, adminNote: null, eta: null, updatedAt: serverTimestamp() }, { merge: true });
-                await logAction("DEACTIVATED Panic Mode.");
+                await logAction("DEACTIVATED Panic Mode."); // No target user for this global action
                 showToast("Maintenance Mode Deactivated. Site is now live.", "success");
             }
         }
@@ -346,6 +347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 adminDashboard.style.opacity = '1';
                 renderAdminUsers();
                 renderAdminGlobalProperties();
+                renderAdminPayments();
                 updateTownDistributionChart();
                 initAdminSupportCenter();
             }, 300);
@@ -642,12 +644,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         users = await fetchUsers();
         properties = await fetchProperties();
+        populateDynamicFilters();
     } catch (err) {
         console.error("Critical: Initial data load failed. Check Firebase config.", err);
     }
 
-    const saveProperties = async () => { properties = await fetchProperties(); };
+    const saveProperties = async () => { 
+        properties = await fetchProperties(); 
+        populateDynamicFilters();
+    };
     const saveUsers = async () => { users = await fetchUsers(); };
+
+    /**
+     * Dynamically populates filters based on current property data
+     */
+    function populateDynamicFilters() {
+        if (!properties || properties.length === 0) return;
+
+        const neighborhoodSelect = document.getElementById('neighborhoodFilter');
+        const waterSelect = document.getElementById('waterFilter');
+
+        if (neighborhoodSelect) {
+            const uniqueNeighborhoods = [...new Set(properties.map(p => p.neighborhood).filter(Boolean))].sort();
+            neighborhoodSelect.innerHTML = '<option value="all">All Neighborhoods</option>' + 
+                uniqueNeighborhoods.map(n => `<option value="${n}">${n}</option>`).join('');
+        }
+
+        if (waterSelect) {
+            const uniqueWaterTypes = [...new Set(properties.map(p => p.water).filter(Boolean))].sort();
+            waterSelect.innerHTML = '<option value="all">Water: Any</option>' + 
+                uniqueWaterTypes.map(w => `<option value="${w}">${w}</option>`).join('');
+        }
+    }
     
     /**
      * CUSTOM TOAST SYSTEM
@@ -953,6 +981,7 @@ function clearActiveSession() {
             previewContainer.classList.remove('drag-over');
             const file = e.dataTransfer.files[0];
             if (file && file.type.startsWith('image/')) {
+                droppedFile = file;
                 const reader = new FileReader();
                 reader.onload = (re) => {
                     previewImg.src = re.target.result;
@@ -1164,6 +1193,8 @@ function clearActiveSession() {
 
     function renderSampleProperties() {
         const town = locationFilter ? locationFilter.value : 'all';
+        const neighborhood = neighborhoodFilter ? neighborhoodFilter.value : 'all'; // Get neighborhood filter value
+        const water = waterFilter ? waterFilter.value : 'all'; // Get water filter value
         const keyword = keywordSearch ? keywordSearch.value.toLowerCase().trim() : '';
         const sortOrder = priceSort ? priceSort.value : 'default';
 
@@ -1212,6 +1243,8 @@ function clearActiveSession() {
             }
 
             if (town !== 'all') filtered = filtered.filter(p => p.town === town);
+            if (neighborhood !== 'all') filtered = filtered.filter(p => p.neighborhood === neighborhood); // Apply neighborhood filter
+            if (water !== 'all') filtered = filtered.filter(p => p.water === water); // Apply water filter
 
             if (filtered.length === 0) {
                 propertyGrid.innerHTML = `
@@ -1413,6 +1446,7 @@ function clearActiveSession() {
             }
             
             restoreBtn();
+            droppedFile = null;
             renderLandlordProperties();
         });
     }
@@ -1432,6 +1466,7 @@ function clearActiveSession() {
         document.getElementById('newLng').value = '';
         document.getElementById('newImage').value = '';
         document.getElementById('imagePreviewContainer').classList.add('hidden');
+        droppedFile = null;
         document.getElementById('imagePreview').src = '';
         document.querySelectorAll('.amenity-check').forEach(el => el.checked = false);
     }
@@ -1539,7 +1574,10 @@ function clearActiveSession() {
             return `
             <tr>
                 <td>${statusHtml}</td>
-                <td>${u.email}</td>
+                <td>
+                    ${u.email}
+                    ${u.adminNote ? `<br><small style="color:var(--danger); font-style:italic;">📝 ${u.adminNote}</small>` : ''}
+                </td>
                 <td><span class="rule-badge">${u.role}</span> ${u.isApproved ? '✅' : '❌'}</td>
                 <td><small>${joinedDate}</small></td>
                 <td><small>${lastLoginDate}</small></td>
@@ -1548,6 +1586,9 @@ function clearActiveSession() {
                     <button class="btn-pay toggle-ban-btn" data-id="${u.id}" data-banned="${u.isBanned}" style="padding: 6px 12px; font-size: 0.8rem; background-color: ${u.isBanned ? '#10b981' : '#ef4444'}; margin-left: 5px;">
                         ${u.isBanned ? 'Unban' : 'Ban'}
                     </button>
+                </td>
+                <td>
+                    <button class="btn-main view-log-btn" data-email="${u.email}" style="padding: 6px 12px; font-size: 0.8rem; background-color: var(--secondary);">View Log</button>
                 </td>
             </tr>
         `}).join('');
@@ -1690,6 +1731,7 @@ function clearActiveSession() {
         const editListingBtn = e.target.closest('.edit-listing-btn');
         const toggleBanBtn = e.target.closest('.toggle-ban-btn');
         const boostListingBtn = e.target.closest('.boost-listing-btn');
+        const viewLogBtn = e.target.closest('.view-log-btn');
         if (deleteUserBtn) {
             const email = deleteUserBtn.getAttribute('data-email');
             const userToDelete = users.find(u => u.email === email);
@@ -1697,6 +1739,7 @@ function clearActiveSession() {
             if (userToDelete && confirm(`⚠️ DANGER: Are you sure you want to permanently remove ${email}? This user will lose all portal access immediately.`)) {
                 await deleteDoc(doc(db, "users", userToDelete.id));
                 await saveUsers();
+                await logAction(`PERMANENTLY REMOVED user`, email);
                 renderAdminUsers();
             }
         }
@@ -1704,11 +1747,7 @@ function clearActiveSession() {
         if (toggleBanBtn) {
             const userId = toggleBanBtn.getAttribute('data-id');
             const isCurrentlyBanned = toggleBanBtn.getAttribute('data-banned') === 'true';
-            if (confirm(`Are you sure you want to ${isCurrentlyBanned ? 'Unban' : 'Ban'} this user?`)) {
-                await updateDoc(doc(db, "users", userId), { isBanned: !isCurrentlyBanned, updatedAt: serverTimestamp() });
-                await saveUsers();
-                renderAdminUsers();
-            }
+            showBanConfirmationModal(userId, isCurrentlyBanned); // Use custom modal
         }
 
         if (verifyBtn) {
@@ -1718,6 +1757,7 @@ function clearActiveSession() {
                 property.isVerified = !property.isVerified;
                 await updateDoc(doc(db, "properties", id), { isVerified: property.isVerified });
                 await saveProperties();
+                await logAction(`${property.isVerified ? 'VERIFIED' : 'UNVERIFIED'} property`, property.landlordEmail || 'N/A'); // Assuming landlordEmail exists
                 renderAdminGlobalProperties();
             }
         }
@@ -1727,6 +1767,7 @@ function clearActiveSession() {
             if (confirm("Are you sure you want to delete this listing?")) {
                 await deleteDoc(doc(db, "properties", id));
                 await saveProperties();
+                await logAction(`DELETED property`, properties.find(p => String(p.id) === id)?.landlordEmail || 'N/A');
                 if (!landlordDashboard.classList.contains('hidden')) renderLandlordProperties();
                 if (!adminDashboard.classList.contains('hidden')) {
                     renderAdminGlobalProperties();
@@ -1765,6 +1806,11 @@ function clearActiveSession() {
             showToast("Listing Boosted! 🚀", "success");
             await saveProperties();
             renderLandlordProperties();
+            await logAction(`BOOSTED property`, properties.find(p => String(p.id) === id)?.landlordEmail || 'N/A');
+        }
+
+        if (viewLogBtn) {
+            showModerationLogModal(viewLogBtn.getAttribute('data-email'));
         }
 
     });
@@ -1784,6 +1830,66 @@ function clearActiveSession() {
                 }, 2000);
             });
         }
+    });
+
+    // --- BAN CONFIRMATION MODAL LOGIC ---
+    let userToBanId = null;
+    let userToBanIsCurrentlyBanned = false;
+
+    const banConfirmationModal = document.getElementById('banConfirmationModal');
+    const banModalTitle = document.getElementById('banModalTitle');
+    const banModalMessage = document.getElementById('banModalMessage');
+    const confirmBanBtn = document.getElementById('confirmBanBtn');
+    const cancelBanBtn = document.getElementById('cancelBanBtn');
+    const adminActionIndicator = document.getElementById('adminActionIndicator');
+    const banModalNote = document.getElementById('banModalNote');
+    const moderationLogModal = document.getElementById('moderationLogModal');
+    const moderationLogContent = document.getElementById('moderationLogContent');
+
+    function showBanConfirmationModal(userId, isCurrentlyBanned) {
+        userToBanId = userId;
+        userToBanIsCurrentlyBanned = isCurrentlyBanned;
+        
+        const user = users.find(u => u.id === userId);
+        if (adminActionIndicator) {
+            adminActionIndicator.textContent = `⚠️ ACTION: ${isCurrentlyBanned ? 'Unbanning' : 'Banning'} ${user?.email || 'User'}`;
+            adminActionIndicator.classList.remove('hidden');
+        }
+
+        banModalTitle.textContent = isCurrentlyBanned ? "Confirm Unban User" : "Confirm Ban User";
+        banModalMessage.innerHTML = `Are you sure you want to <strong>${isCurrentlyBanned ? 'unban' : 'ban'}</strong> this user? This action will immediately ${isCurrentlyBanned ? 'restore their access' : 'revoke their access to the portal'}.`;
+        
+        // Populate the note field with existing data if available
+        if (banModalNote) banModalNote.value = user?.adminNote || "";
+
+        confirmBanBtn.textContent = isCurrentlyBanned ? "Unban User" : "Ban User";
+        confirmBanBtn.style.backgroundColor = isCurrentlyBanned ? 'var(--success)' : 'var(--danger)';
+
+        banConfirmationModal.classList.remove('hidden');
+    }
+
+    confirmBanBtn?.addEventListener('click', async () => {
+        if (userToBanId) {
+            const note = banModalNote ? banModalNote.value.trim() : "";
+            await updateDoc(doc(db, "users", userToBanId), { 
+                isBanned: !userToBanIsCurrentlyBanned, 
+                // Only update adminNote if it's a ban or if the note is explicitly provided/changed
+                adminNote: note,
+                updatedAt: serverTimestamp() 
+            });
+            await saveUsers();
+            renderAdminUsers();
+            showToast(`User ${userToBanIsCurrentlyBanned ? 'unbanned' : 'banned'} successfully!`, "success");
+        }
+        banConfirmationModal.classList.add('hidden');
+        adminActionIndicator?.classList.add('hidden');
+        userToBanId = null;
+    });
+
+    cancelBanBtn?.addEventListener('click', () => {
+        banConfirmationModal.classList.add('hidden');
+        adminActionIndicator?.classList.add('hidden');
+        userToBanId = null;
     });
 
     // --- 7. UTILITY: FAVORITE LISTINGS ---
