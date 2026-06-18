@@ -127,6 +127,7 @@
                         <option value="favorites">Favorites</option>
                     </select>
                     <button id="clearFiltersBtn" class="btn-logout" style="background: var(--text-muted);">Reset</button>
+                    <button id="saveSearchBtn" class="btn-main" style="background: var(--secondary);">💾 Save Search</button>
                 </div>
             </div>
 
@@ -241,6 +242,24 @@
                         <tbody id="adminUserTableBody">
                             <!-- User database rows dynamically generate here -->
                         </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SAVED SEARCHES -->
+            <div>
+                <h3>💾 Saved Seeker Searches</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User Email</th>
+                                <th>Search Criteria</th>
+                                <th>Created On</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminSavedSearchesTableBody"></tbody>
                     </table>
                 </div>
             </div>

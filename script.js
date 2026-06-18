@@ -368,6 +368,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 renderAdminPayments();
                 renderAdminGlobalProperties();
                 updateTownDistributionChart();
+                renderAdminSavedSearches();
                 initAdminSupportCenter();
             }, 300);
             return;
@@ -1309,6 +1310,7 @@ function clearActiveSession() {
     const favoritesFilter = document.getElementById('favoritesFilter');
     const priceSort = document.getElementById('priceSort');
     const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    const saveSearchBtn = document.getElementById('saveSearchBtn');
 
     if (locationFilter) {
         locationFilter.addEventListener('change', () => {
@@ -1388,6 +1390,35 @@ function clearActiveSession() {
                 budgetInput.value = '';
             }
             renderSampleProperties();
+        });
+    }
+
+    if (saveSearchBtn) {
+        saveSearchBtn.addEventListener('click', async () => {
+            if (!sessionEmail) {
+                showToast("You must be logged in to save a search.", "error");
+                return;
+            }
+
+            const searchCriteria = {
+                town: locationFilter?.value || 'all',
+                neighborhood: neighborhoodFilter?.value || 'all',
+                water: waterFilter?.value || 'all',
+                houseType: typeFilter?.value || 'all',
+                keyword: keywordSearch?.value.toLowerCase().trim() || '',
+                sortOrder: priceSort?.value || 'default'
+            };
+
+            try {
+                await addDoc(collection(db, "saved_searches"), {
+                    userEmail: sessionEmail,
+                    criteria: searchCriteria,
+                    createdAt: serverTimestamp()
+                });
+                showToast("Search saved! You'll be notified of new matching properties.", "success");
+            } catch (error) {
+                showToast("Failed to save search.", "error");
+            }
         });
     }
 
@@ -1839,6 +1870,35 @@ function clearActiveSession() {
         });
     }
 
+    async function renderAdminSavedSearches() {
+        const tableBody = document.getElementById('adminSavedSearchesTableBody');
+        if (!tableBody) return;
+
+        const q = query(collection(db, "saved_searches"));
+        const snap = await getDocs(q);
+        const searches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        tableBody.innerHTML = searches.map(s => {
+            const criteriaHtml = Object.entries(s.criteria)
+                .filter(([key, value]) => value && value !== 'all' && value !== 'default')
+                .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
+                .join('<br>');
+            
+            const createdDate = s.createdAt?.toDate().toLocaleDateString() || 'N/A';
+
+            return `
+                <tr>
+                    <td>${s.userEmail}</td>
+                    <td><small>${criteriaHtml || 'Any Property'}</small></td>
+                    <td>${createdDate}</td>
+                    <td>
+                        <button class="btn-logout" onclick="deleteSavedSearch('${s.id}')" style="padding: 6px 12px; font-size: 0.8rem;">Delete</button>
+                    </td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="4" style="text-align:center;">No saved searches yet.</td></tr>';
+    }
+
     function renderAdminGlobalProperties() {
         const query = document.getElementById('adminPropertySearch')?.value.toLowerCase() || '';
         const tableBody = document.getElementById('adminGlobalPropertyTableBody');
@@ -2032,6 +2092,18 @@ function clearActiveSession() {
         }
 
     });
+
+    window.deleteSavedSearch = async (searchId) => {
+        if (confirm("Are you sure you want to delete this saved search?")) {
+            try {
+                await deleteDoc(doc(db, "saved_searches", searchId));
+                showToast("Saved search deleted.", "success");
+                renderAdminSavedSearches();
+            } catch (error) {
+                showToast("Failed to delete saved search.", "error");
+            }
+        }
+    };
 
     // --- 6. UTILITY: COPY TO CLIPBOARD ---
     document.addEventListener('click', (e) => {
