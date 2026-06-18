@@ -1303,6 +1303,7 @@ function clearActiveSession() {
     const locationFilter = document.getElementById('locationFilter');
     const neighborhoodFilter = document.getElementById('neighborhoodFilter');
     const waterFilter = document.getElementById('waterFilter');
+    const typeFilter = document.getElementById('typeFilter');
     const distanceFilter = document.getElementById('distanceFilter');
     const keywordSearch = document.getElementById('keywordSearch');
     const favoritesFilter = document.getElementById('favoritesFilter');
@@ -1316,6 +1317,7 @@ function clearActiveSession() {
     }
     if (neighborhoodFilter) neighborhoodFilter.addEventListener('change', () => renderSampleProperties());
     if (waterFilter) waterFilter.addEventListener('change', () => renderSampleProperties());
+    if (typeFilter) typeFilter.addEventListener('change', () => renderSampleProperties());
     if (distanceFilter) distanceFilter.addEventListener('change', () => renderSampleProperties());
     if (favoritesFilter) favoritesFilter.addEventListener('change', () => renderSampleProperties());
     if (keywordSearch) keywordSearch.addEventListener('input', () => renderSampleProperties());
@@ -1375,6 +1377,7 @@ function clearActiveSession() {
             if (locationFilter) locationFilter.value = 'all';
             if (neighborhoodFilter) neighborhoodFilter.value = 'all';
             if (waterFilter) waterFilter.value = 'all';
+            if (typeFilter) typeFilter.value = 'all';
             if (distanceFilter) distanceFilter.value = 'all';
             if (favoritesFilter) favoritesFilter.value = 'all';
             if (priceSort) priceSort.value = 'default';
@@ -1392,6 +1395,7 @@ function clearActiveSession() {
         const town = locationFilter ? locationFilter.value : 'all';
         const neighborhood = neighborhoodFilter ? neighborhoodFilter.value : 'all'; // Get neighborhood filter value
         const water = waterFilter ? waterFilter.value : 'all'; // Get water filter value
+        const houseType = typeFilter ? typeFilter.value : 'all';
         const keyword = keywordSearch ? keywordSearch.value.toLowerCase().trim() : '';
         const sortOrder = priceSort ? priceSort.value : 'default';
 
@@ -1442,6 +1446,7 @@ function clearActiveSession() {
             if (town !== 'all') filtered = filtered.filter(p => p.town === town);
             if (neighborhood !== 'all') filtered = filtered.filter(p => p.neighborhood === neighborhood); // Apply neighborhood filter
             if (water !== 'all') filtered = filtered.filter(p => p.water === water); // Apply water filter
+            if (houseType !== 'all') filtered = filtered.filter(p => p.type === houseType);
 
             if (filtered.length === 0) {
                 propertyGrid.innerHTML = `
