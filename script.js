@@ -1287,8 +1287,9 @@ function clearActiveSession() {
             btn.classList.add('active');
             const tab = btn.getAttribute('data-tab');
             
-            document.getElementById('discoverSection').classList.toggle('hidden', tab === 'calculator');
+            document.getElementById('discoverSection').classList.toggle('hidden', tab !== 'discover');
             document.getElementById('calculatorSection').classList.toggle('hidden', tab !== 'calculator');
+            document.getElementById('mySearchesSection')?.classList.toggle('hidden', tab !== 'my-searches');
             
             if (tab === 'favorites' && document.getElementById('favoritesFilter')) {
                 document.getElementById('favoritesFilter').value = 'favorites';
@@ -1296,6 +1297,8 @@ function clearActiveSession() {
             } else if (tab === 'discover' && document.getElementById('favoritesFilter')) {
                 document.getElementById('favoritesFilter').value = 'all';
                 renderSampleProperties();
+            } else if (tab === 'my-searches') {
+                renderMySavedSearches();
             }
         });
     });
@@ -1553,6 +1556,36 @@ function clearActiveSession() {
                 `;
             }).join('');
         }, 300);
+    }
+
+    async function renderMySavedSearches() {
+        const container = document.getElementById('mySavedSearchesContainer');
+        if (!container || !sessionEmail) return;
+    
+        container.innerHTML = '<p>Loading your saved searches...</p>';
+    
+        const q = query(collection(db, "saved_searches"), where("userEmail", "==", sessionEmail));
+        const snap = await getDocs(q);
+        const searches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+        if (searches.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color: var(--text-muted);">You have no saved searches. Use the "💾 Save Search" button in the Discover tab.</p>';
+            return;
+        }
+    
+        container.innerHTML = searches.map(s => {
+            const criteriaHtml = Object.entries(s.criteria)
+                .filter(([, value]) => value && value !== 'all' && value !== 'default')
+                .map(([key, value]) => `<span class="rule-badge">${key.replace(/([A-Z])/g, ' $1')}: ${value}</span>`)
+                .join(' ');
+    
+            return `
+                <div style="background: rgba(0,0,0,0.05); padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>${criteriaHtml || '<span class="rule-badge">Any Property</span>'}</div>
+                    <button class="btn-logout" onclick="deleteSavedSearch('${s.id}')" style="padding: 6px 12px; font-size: 0.8rem; margin: 0;">Delete</button>
+                </div>
+            `;
+        }).join('');
     }
 
     // --- 5. LANDLORD UPLOAD LOGIC ---
@@ -2098,7 +2131,8 @@ function clearActiveSession() {
             try {
                 await deleteDoc(doc(db, "saved_searches", searchId));
                 showToast("Saved search deleted.", "success");
-                renderAdminSavedSearches();
+                if (!adminDashboard.classList.contains('hidden')) renderAdminSavedSearches();
+                if (!seekerDashboard.classList.contains('hidden')) renderMySavedSearches();
             } catch (error) {
                 showToast("Failed to delete saved search.", "error");
             }

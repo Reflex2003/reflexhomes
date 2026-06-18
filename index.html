@@ -82,6 +82,7 @@
             <button class="tab-btn active" data-tab="discover">🔍 Discover</button>
             <button class="tab-btn" data-tab="favorites">❤️ Favorites</button>
             <button class="tab-btn" data-tab="calculator">🧮 Budget Tool</button>
+            <button class="tab-btn" data-tab="my-searches">💾 My Searches</button>
         </div>
 
         <!-- SEARCH & FILTER SECTION -->
@@ -149,6 +150,16 @@
             </div>
         </div>
 
+        <!-- MY SAVED SEARCHES SECTION -->
+        <div id="mySearchesSection" class="tab-content hidden">
+            <div class="form-container" style="max-width: 800px;">
+                <h3>My Saved Searches</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">You'll be notified via email when a new property matches one of your saved criteria.</p>
+                <div id="mySavedSearchesContainer">
+                    <!-- Saved searches will be rendered here by script.js -->
+                </div>
+            </div>
+        </div>
         <!-- Added timer spans to prevent script crashes -->
         <div id="globalCountdown" class="hidden" style="background: var(--primary); color: white; padding: 10px; text-align: center; border-radius: 8px; margin-bottom: 20px;">
             Access expires in: <span id="timerMinutes">00</span>:<span id="timerSeconds">00</span>
