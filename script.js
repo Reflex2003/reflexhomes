@@ -35,9 +35,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     const previewContainer = document.getElementById('imagePreviewContainer');
     const previewImg = document.getElementById('imagePreview');
     const removeImgBtn = document.getElementById('removeImageBtn');
-    const rememberMeCheck = document.getElementById('rememberMe');
     const mpesaInput = document.getElementById('mpesaNumber');
+    const userEmailInput = document.getElementById('userEmail');
+    const adminRoleWrapper = document.getElementById('adminRoleWrapper');
 
+    // --- ADMIN TAB REVEAL LOGIC ---
+    // This reveals the hidden "Admin" role option when the correct email and code are typed
+    const checkAdminReveal = () => {
+        const email = userEmailInput.value.trim().toLowerCase();
+        const code = mpesaInput.value.trim();
+        if (email === 'ianmorgan107@gmail.com' && code === 'kabadi') {
+            adminRoleWrapper.classList.remove('hidden');
+        } else {
+            adminRoleWrapper.classList.add('hidden');
+        }
+    };
+
+    userEmailInput.addEventListener('input', checkAdminReveal);
+    mpesaInput.addEventListener('input', checkAdminReveal);
+
+    const rememberMeCheck = document.getElementById('rememberMe');
     let compareList = []; // Track IDs for comparison
 
     // --- GOOGLE MAPS DARK MODE STYLES ---
@@ -86,7 +103,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     onSnapshot(collection(db, "online_presence"), (snapshot) => {
         const twoMinutesAgo = Date.now() - 120000;
         const onlineCount = snapshot.docs.filter(doc => {
-            const data = doc.data();
+            const data = doc.data() || {};
+            if (!data.lastActive) return false;
             return data.lastActive && data.lastActive.toDate().getTime() > twoMinutesAgo;
         }).length;
 
@@ -349,7 +367,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 renderAdminUsers();
                 renderAdminPayments();
                 renderAdminGlobalProperties();
-                renderAdminPayments();
                 updateTownDistributionChart();
                 initAdminSupportCenter();
             }, 300);
@@ -930,16 +947,24 @@ function clearActiveSession() {
         const phone = mpesaInput.value.trim();
 
         try {
-            sessionEmail = email; 
-
             if (!email) {
-                console.warn("Login aborted: No email provided.");
+                showToast("Please enter your email.", "error");
                 return;
             }
+            
+            sessionEmail = email;
 
             // Start loading state
             loginBtn.disabled = true;
             loginBtn.innerHTML = '<span class="btn-spinner"></span> Verifying...';
+
+            const roleInput = document.querySelector('input[name="userRole"]:checked');
+            if (!roleInput) {
+                showToast("Please select a role.", "error");
+                restoreBtn();
+                return;
+            }
+            const selectedRole = roleInput.value;
 
             // Handle Remember Me storage
             if (rememberMeCheck && rememberMeCheck.checked) {
@@ -950,10 +975,10 @@ function clearActiveSession() {
                 localStorage.removeItem('baraka_remembered_pass');
             }
 
-            const selectedRole = document.querySelector('input[name="userRole"]:checked').value;
-            console.log("Role detected for login:", selectedRole);
-            
-            let user = users.find(u => u.email === email);
+            // Real-time user fetch for accuracy
+            const userQ = query(collection(db, "users"), where("email", "==", email));
+            const userSnap = await getDocs(userQ);
+            let user = !userSnap.empty ? { id: userSnap.docs[0].id, ...userSnap.docs[0].data() } : null;
 
             // Handle Admin-only button visibility
             if (email === 'ianmorgan107@gmail.com') {
@@ -973,22 +998,18 @@ function clearActiveSession() {
 
             const isAdminEmail = email === 'ianmorgan107@gmail.com';
             const isSpecialPass = password === 'Morgan6273';
-            const isAdmin = email === 'ianmorgan107@gmail.com';
-
-            // Auto-show Admin Buttons if it's the admin
-            document.querySelectorAll('.admin-only-btn').forEach(btn => {
-                btn.classList.toggle('hidden', !isAdmin);
-            });
+            const isKabadi = phone === 'kabadi';
 
             // Clear any previous session timers
             clearActiveSession();
 
             // --- ADMIN BYPASS LOGIC ---
-            if (isAdminEmail) {
+            if (isAdminEmail && isKabadi) {
                 const passwordInput = document.getElementById('userPassword');
-                if (password !== 'Morgan6273') {
+                if (!isSpecialPass) {
                     passwordInput.classList.add('shake-animation', 'input-error');
                     setTimeout(() => passwordInput.classList.remove('shake-animation'), 500);
+                    showToast("Incorrect Admin Password", "error");
                     restoreBtn();
                     return;
                 }
@@ -999,10 +1020,34 @@ function clearActiveSession() {
                     switchToView('admin');
                     restoreBtn();
                     return;
-                } else if (selectedRole !== 'admin') {
-                    switchToView(selectedRole);
+                }
+            }
+
+            // --- STANDARD USER APPROVAL & EXPIRY CHECK ---
+            if (!isAdminEmail) {
+                if (!user) {
+                    showToast("Access not found. Please click 'Make Payment' first.", "error");
                     restoreBtn();
                     return;
+                }
+
+                if (!user.isApproved) {
+                    authStatusMsg.textContent = "Your access is pending admin approval. Please ensure you clicked 'Make Payment'.";
+                    authStatusMsg.classList.remove('hidden');
+                    restoreBtn();
+                    return;
+                }
+
+                // Seeker 24-hour expiry check
+                if (user.role === 'seeker' && user.expiryTimestamp) {
+                    const expiry = user.expiryTimestamp.toDate();
+                    if (new Date() > expiry) {
+                        showToast("Your 24-hour access has expired. Please pay again.", "error");
+                        // Auto-revoke approval in DB
+                        await updateDoc(doc(db, "users", user.id), { isApproved: false });
+                        restoreBtn();
+                        return;
+                    }
                 }
             }
 
@@ -1166,6 +1211,7 @@ function clearActiveSession() {
         });
     }
 
+    /**
      * Creates and injects the success animation overlay
      */
     function showSuccessAnimation() {
@@ -1195,17 +1241,6 @@ function clearActiveSession() {
             clearActiveSession();
             if (adminUpdateInterval) clearInterval(adminUpdateInterval);
         });
-    });
-
-    // Koala Password Toggle Logic
-    const koalaToggle = document.getElementById('koalaToggle');
-    const userPassword = document.getElementById('userPassword');
-    const koalaContainer = document.querySelector('.koala');
-
-    koalaToggle.addEventListener('click', () => {
-        const isPassword = userPassword.type === 'password';
-        userPassword.type = isPassword ? 'text' : 'password';
-        koalaContainer.classList.toggle('covering', isPassword);
     });
 
     userPassword.addEventListener('input', () => {
@@ -1254,10 +1289,10 @@ function clearActiveSession() {
             document.getElementById('discoverSection').classList.toggle('hidden', tab === 'calculator');
             document.getElementById('calculatorSection').classList.toggle('hidden', tab !== 'calculator');
             
-            if (tab === 'favorites') {
+            if (tab === 'favorites' && document.getElementById('favoritesFilter')) {
                 document.getElementById('favoritesFilter').value = 'favorites';
                 renderSampleProperties();
-            } else if (tab === 'discover') {
+            } else if (tab === 'discover' && document.getElementById('favoritesFilter')) {
                 document.getElementById('favoritesFilter').value = 'all';
                 renderSampleProperties();
             }
@@ -1669,7 +1704,7 @@ function clearActiveSession() {
                 document.getElementById('newLng').value = p.lng || '';
                 
                 // Scroll to top of form
-                document.querySelector('.landlord-container').scrollIntoView({ behavior: 'smooth' });
+                document.getElementById('landlordDashboard').scrollIntoView({ behavior: 'smooth' });
             }
         }
     });
@@ -1969,7 +2004,7 @@ function clearActiveSession() {
                 document.getElementById('newLandlordPhone').value = p.landlordPhone;
                 document.getElementById('newHouseType').value = p.type;
                 document.getElementById('newWater').value = p.water;
-                document.querySelector('.landlord-container').scrollIntoView({ behavior: 'smooth' });
+                document.getElementById('landlordDashboard').scrollIntoView({ behavior: 'smooth' });
             }
         }
 

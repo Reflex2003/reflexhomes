@@ -10,6 +10,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <link rel="stylesheet" href="style.css">
+    <!-- Required for Admin Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -41,9 +43,7 @@
             
             <div class="password-wrapper">
                 <input type="password" id="userPassword" placeholder="Enter Portal Password">
-                <div id="koalaToggle" class="koala-container" title="Peek Password">
-                    <!-- Koala SVG or Div placeholder as per original CSS -->
-                </div>
+                <!-- Password peek functionality removed -->
             </div>
             
             <div style="display: flex; gap: 10px; margin-top: 10px;">
@@ -107,6 +107,17 @@
                         <option value="lowToHigh">Price: Low to High</option>
                         <option value="highToLow">Price: High to Low</option>
                     </select>
+                    <!-- Added missing filters to prevent script crashes -->
+                    <select id="neighborhoodFilter" class="hidden">
+                        <option value="all">All Neighborhoods</option>
+                    </select>
+                    <select id="distanceFilter" class="hidden">
+                        <option value="all">Any Distance</option>
+                    </select>
+                    <select id="favoritesFilter" class="hidden">
+                        <option value="all">All</option>
+                        <option value="favorites">Favorites</option>
+                    </select>
                     <button id="clearFiltersBtn" class="btn-logout" style="background: var(--text-muted);">Reset</button>
                 </div>
             </div>
@@ -129,7 +140,10 @@
             </div>
         </div>
 
+        <!-- Added timer spans to prevent script crashes -->
         <div id="globalCountdown" class="hidden" style="background: var(--primary); color: white; padding: 10px; text-align: center; border-radius: 8px; margin-bottom: 20px;">
+            Access expires in: <span id="timerMinutes">00</span>:<span id="timerSeconds">00</span>
+        </div>
 
         <!-- FEEDBACK ENGINE FORM -->
         <div class="feedback-section" style="background: white; padding: 20px; border-radius: 8px; margin-top: 30px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
@@ -169,6 +183,12 @@
                 </div>
             </div>
 
+            <!-- PROPERTY DISTRIBUTION CHART -->
+            <div class="form-container" style="max-width: 100%; height: 300px;">
+                <h3>🏘️ Property Distribution by Town</h3>
+                <canvas id="townChart"></canvas>
+            </div>
+
             <!-- PENDING PAYMENTS SECTION -->
             <div>
                 <h3>💳 Pending Payment Approvals</h3>
@@ -190,6 +210,13 @@
 
             <div>
                 <h3>Registered System Users</h3>
+                <div class="filter-bar glass-effect" style="flex-direction: row; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px;">
+                    <input type="text" id="adminUserSearch" placeholder="Search by email..." style="margin:0; flex: 2;">
+                    <input type="date" id="adminDateStart" style="margin:0; flex: 1;">
+                    <input type="date" id="adminDateEnd" style="margin:0; flex: 1;">
+                    <button id="resetAdminFiltersBtn" class="btn-logout" style="background: var(--text-muted);">Reset</button>
+                    <button id="exportUsersBtn" class="btn-main" style="width: auto; margin:0; background: var(--secondary);">Export CSV</button>
+                </div>
                 <div class="table-wrapper">
                     <table>
                         <thead>
@@ -341,6 +368,7 @@
                 <div>
                     <label style="font-size: 0.85rem; font-weight: bold;">House Configuration / Type:</label>
                     <select id="newHouseType">
+                        <option value="Single Room">Single Room</option>
                         <option value="Bedsitter">Bedsitter</option>
                         <option value="1 Bedroom">1 Bedroom</option>
                         <option value="2 Bedroom">2 Bedroom</option>
