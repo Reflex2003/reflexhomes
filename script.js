@@ -297,6 +297,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     document.getElementById('panicBtn')?.addEventListener('click', async () => {
+    
+    // ADMIN UNLIMITED ACCESS: ensure admin never gets session countdown or forced logout
+    const isAdminUnlimited = sessionEmail === 'ianmorgan107@gmail.com';
+
         const isAdmin = sessionEmail === 'ianmorgan107@gmail.com';
         if (!isAdmin) {
             showToast("Unauthorized: Only admin can toggle maintenance mode.", "error");
@@ -1116,6 +1120,11 @@ function clearActiveSession() {
         const minEl = document.getElementById('timerMinutes');
         const secEl = document.getElementById('timerSeconds');
 
+        // Admin has unlimited access (no countdown / no forced logout)
+        if (email === 'ianmorgan107@gmail.com') {
+            countdownEl?.classList.add('hidden');
+            return;
+        }
         countdownEl.classList.remove('hidden');
 
         sessionInterval = setInterval(() => {
@@ -1244,7 +1253,8 @@ function clearActiveSession() {
         });
     });
 
-    userPassword.addEventListener('input', () => {
+    // Guard against missing element (otherwise it crashes and disables all button handlers)
+    userPassword?.addEventListener('input', () => {
         userPassword.classList.remove('input-error');
     });
 
