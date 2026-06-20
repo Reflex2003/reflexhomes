@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const removeImgBtn = document.getElementById('removeImageBtn');
     const mpesaInput = document.getElementById('mpesaNumber');
     const userEmailInput = document.getElementById('userEmail');
+    const userPassword = document.getElementById('userPassword');
     const adminRoleWrapper = document.getElementById('adminRoleWrapper');
 
     // --- ADMIN TAB REVEAL LOGIC ---
@@ -851,8 +852,8 @@ function clearActiveSession() {
                     await new Promise(r => setTimeout(r, 2200));
 
                     showToast("PIN Authorized! Admin will review your payment shortly.", "success");
-                document.getElementById('authStatusMsg').textContent = "Payment request pending admin approval.";
-                document.getElementById('authStatusMsg').classList.remove('hidden');
+                    document.getElementById('authStatusMsg').textContent = "Payment request pending admin approval.";
+                    document.getElementById('authStatusMsg').classList.remove('hidden');
                     modal.classList.add('hidden');
                     
                     // Reset UI state for next potential transaction
@@ -1637,7 +1638,7 @@ function clearActiveSession() {
     }
 
     if (uploadHouseBtn) {
-        uploadHouseBtn.addEventListener('click', async () => {
+            uploadHouseBtn.addEventListener('click', async () => {
             const town = document.getElementById('newTown').value.trim();
             const price = document.getElementById('newPrice').value.trim();
             const distance = document.getElementById('newDistance').value.trim();
@@ -1655,6 +1656,8 @@ function clearActiveSession() {
                 uploadHouseBtn.disabled = false;
                 uploadHouseBtn.innerHTML = originalBtnText;
             };
+
+            try {
 
             if (!town || !price || !landlordPhone) {
                 showToast("Please fill in all required fields.", "error");
@@ -1676,12 +1679,17 @@ function clearActiveSession() {
                     const compressedBlob = await compressImage(file);
                     const storageRef = ref(storage, `properties/${Date.now()}_${file.name}`);
                     const uploadTask = uploadBytesResumable(storageRef, compressedBlob);
-                    return new Promise((resolve) => {
-                        uploadTask.on('state_changed', null, null, async () => {
-                            const url = await getDownloadURL(uploadTask.snapshot.ref);
-                            resolve(url);
-                        });
+
+                    await new Promise((resolve, reject) => {
+                        uploadTask.on(
+                            'state_changed',
+                            null,
+                            (err) => reject(err),
+                            () => resolve()
+                        );
                     });
+
+                    return await getDownloadURL(uploadTask.snapshot.ref);
                 });
                 imageUrls = await Promise.all(uploadPromises);
             }
