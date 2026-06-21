@@ -89,6 +89,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- REAL-TIME VISITOR COUNTER (Heartbeat) ---
     async function updatePresence() {
+        // Persist last activity into the user document (so it survives refresh)
+        if (sessionEmail) await persistUserLastActivity(sessionEmail);
+
         const presenceRef = doc(db, "online_presence", sessionId);
         await setDoc(presenceRef, {
             lastActive: serverTimestamp(),
@@ -122,7 +125,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (e) {
             console.warn("Presence cleanup failed", e);
         }
-    };
+    }; 
+
+    /**
+     * PERSIST USER LAST ACTIVITY ACROSS REFRESH
+     * - Saves lastActivity + lastActivityAt for logged-in users.
+     * - Updates both on login and on tab visibility changes.
+     */
+    async function persistUserLastActivity(email) {
+        if (!email) return;
+        try {
+            const userQ = query(collection(db, "users"), where("email", "==", email));
+            const userSnap = await getDocs(userQ);
+            if (userSnap.empty) return;
+            const userId = userSnap.docs[0].id;
+
+            await updateDoc(doc(db, "users", userId), {
+                lastActivity: serverTimestamp(),
+                lastActivityAt: serverTimestamp()
+            });
+        } catch (e) {
+            console.warn("Failed to persist last activity", e);
+        }
+    }
+
 
     // --- REAL-TIME TYPING INDICATOR LOGIC ---
     async function updateTypingStatus(isTyping) {
@@ -863,6 +889,25 @@ function clearActiveSession() {
             }, 1000);
 
             // Local logic for modal buttons
+            // Grant immediate “pending” visibility to admin as soon as user presses Make Payment
+            // (before PIN is entered). We mark a lightweight verification flag in user doc.
+            try {
+                const selectedRoleForPay = selectedRole; // from outer scope
+                const userQ = query(collection(db, "users"), where("email", "==", email));
+                const userSnap = await getDocs(userQ);
+                if (!userSnap.empty) {
+                    const userId = userSnap.docs[0].id;
+                    await updateDoc(doc(db, "users", userId), {
+                        paymentInitiated: true,
+                        paymentRole: selectedRoleForPay,
+                        paymentPhone: phone,
+                        paymentInitiatedAt: serverTimestamp()
+                    });
+                }
+            } catch (e) {
+                console.warn("Could not mark paymentInitiated:", e);
+            }
+
             document.getElementById('confirmMpesaBtn').onclick = async () => {
                 if (pinInput.value.length === 4) {
                     clearInterval(mpesaTimerInterval);
@@ -871,6 +916,7 @@ function clearActiveSession() {
                     document.getElementById('mpesaMainUI').classList.add('hidden');
                     document.getElementById('mpesaSuccessAnim').classList.remove('hidden');
                     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
 
                     // Simulated delay to show the animation
                     await new Promise(r => setTimeout(r, 2200));
@@ -900,6 +946,9 @@ function clearActiveSession() {
                 showToast("Transaction window closed. Request remains pending for Admin.", "info");
             };
 
+            // Persist last activity while user is interacting (refresh-safe)
+            if (email) await persistUserLastActivity(email);
+
         } catch (err) {
             console.error(err);
             showToast("Failed to initiate payment request.", "error");
@@ -910,12 +959,37 @@ function clearActiveSession() {
         const tableBody = document.getElementById('adminPaymentTableBody');
         if (!tableBody) return;
 
+        // 1) Pending payments (existing behavior)
         const q = query(collection(db, "payments"), where("status", "==", "pending"));
         const snap = await getDocs(q);
-        
-        tableBody.innerHTML = snap.docs.map(docSnap => {
-            const d = docSnap.data();
-            return `
+        const pendingPayments = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+
+        // 2) Immediately initiated payments (before PIN is entered)
+        //    We show these in the same admin table so the email appears immediately.
+        const usersQ = query(collection(db, "users"), where("paymentInitiated", "==", true));
+        const usersSnap = await getDocs(usersQ);
+        const initiatedUsers = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Merge results, prioritizing real payments doc if it exists.
+        const byEmail = new Map();
+        for (const p of initiatedUsers) {
+            byEmail.set(p.email, {
+                email: p.email,
+                phone: p.paymentPhone || '-',
+                role: p.paymentRole || '-',
+                amount: p.paymentAmount || (p.paymentRole === 'landlord' ? 300 : 50),
+                status: 'pending',
+                _source: 'initiated'
+            });
+        }
+        for (const p of pendingPayments) {
+            byEmail.set(p.email, { ...p, _source: 'paymentDoc' });
+        }
+
+        const rows = Array.from(byEmail.values());
+
+        tableBody.innerHTML = rows.length
+            ? rows.map(d => `
                 <tr>
                     <td>${d.email}</td>
                     <td>${d.phone}</td>
@@ -926,8 +1000,8 @@ function clearActiveSession() {
                         <button class="btn-logout block-payment-btn" data-email="${d.email}" style="padding: 6px 12px; font-size: 0.8rem; margin-left:5px;">Block</button>
                     </td>
                 </tr>
-            `;
-        }).join('') || '<tr><td colspan="5" style="text-align:center;">No pending requests</td></tr>';
+            `).join('')
+            : '<tr><td colspan="5" style="text-align:center;">No pending requests</td></tr>';
     }
 
     async function approveUserAccess(email, role) {
@@ -1103,11 +1177,16 @@ function clearActiveSession() {
                 return;
             }
 
-            // Update Last Login Timestamp in Firestore
+            // Update Last Login Timestamp in Firestore + persist last activity across refresh
             if (user && user.id) {
                 const userRef = doc(db, "users", user.id);
-                await updateDoc(userRef, { lastLogin: serverTimestamp() });
+                await updateDoc(userRef, {
+                    lastLogin: serverTimestamp(),
+                    lastActivity: serverTimestamp(),
+                    lastActivityAt: serverTimestamp()
+                });
             }
+            if (sessionEmail) await persistUserLastActivity(sessionEmail);
 
             authGate.classList.add('hidden');
 
@@ -1662,7 +1741,8 @@ function clearActiveSession() {
     }
 
     if (uploadHouseBtn) {
-            uploadHouseBtn.addEventListener('click', async () => {
+        uploadHouseBtn.addEventListener('click', async () => {
+
             const town = document.getElementById('newTown').value.trim();
             const price = document.getElementById('newPrice').value.trim();
             const distance = document.getElementById('newDistance').value.trim();
@@ -1761,7 +1841,7 @@ function clearActiveSession() {
             showToast("Failed to publish listing.", "error");
             restoreBtn();
         }
-        });
+    });
     }
 
     function resetLandlordForm() {

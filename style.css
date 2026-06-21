@@ -79,7 +79,10 @@ header h1 {
 .form-container {
     background: var(--card-bg);
     backdrop-filter: var(--glass);
+    -webkit-backdrop-filter: var(--glass);
     max-width: 450px;
+
+
     margin: 30px auto;
     padding: 30px;
     border-radius: var(--radius);
@@ -160,6 +163,34 @@ input[type="text"], input[type="password"], textarea, select {
     box-shadow: 0 4px 12px rgba(0, 128, 128, 0.2);
 }
 
+.btn-main:focus-visible,
+.btn-logout:focus-visible,
+.btn-pay:focus-visible,
+.admin-only-btn:focus-visible,
+.tab-btn:focus-visible,
+.care-btn:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 3px solid rgba(0, 128, 128, 0.35);
+    outline-offset: 2px;
+}
+
+body.dark-mode .btn-main:focus-visible,
+body.dark-mode .btn-logout:focus-visible,
+body.dark-mode .btn-pay:focus-visible,
+body.dark-mode .admin-only-btn:focus-visible,
+body.dark-mode .tab-btn:focus-visible,
+body.dark-mode .care-btn:focus-visible,
+body.dark-mode button:focus-visible,
+body.dark-mode input:focus-visible,
+body.dark-mode select:focus-visible,
+body.dark-mode textarea:focus-visible {
+    outline: 3px solid rgba(34, 197, 94, 0.35);
+}
+
+
 .btn-pay {
     width: 100%;
     background-color: var(--success);
@@ -197,7 +228,9 @@ input[type="text"], input[type="password"], textarea, select {
     align-items: center;
     background: var(--card-bg);
     backdrop-filter: var(--glass);
+    -webkit-backdrop-filter: var(--glass);
     padding: 15px 20px;
+
     border-radius: 8px;
     margin-bottom: 20px;
     box-shadow: var(--shadow-sm);
@@ -433,6 +466,7 @@ body.dark-mode tr:hover { background-color: rgba(255, 255, 255, 0.05); }
     transform: translateY(-50%);
     background: rgba(255,255,255,0.3);
     backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
     border: none;
     color: white;
     padding: 10px 15px;
@@ -440,6 +474,7 @@ body.dark-mode tr:hover { background-color: rgba(255, 255, 255, 0.05); }
     z-index: 10;
     border-radius: 50%;
 }
+
 .carousel-btn.prev { left: 10px; }
 .carousel-btn.next { right: 10px; }
 
