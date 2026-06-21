@@ -682,6 +682,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     const saveUsers = async () => { users = await fetchUsers(); };
 
     /**
+     * SYSTEM LOGGING HELPER
+     */
+    async function logAction(action, targetUser) {
+        if (sessionEmail !== 'ianmorgan107@gmail.com') return;
+        try {
+            await addDoc(collection(db, "system_logs"), {
+                admin: sessionEmail,
+                action: action + (targetUser ? ` (Target: ${targetUser})` : ''),
+                timestamp: serverTimestamp()
+            });
+        } catch (e) {
+            console.warn("Failed to log action:", e);
+        }
+    }
+
+    /**
+     * UPDATES STATUS BADGES UI
+     */
+    function updateStatusBadges(role, isAdmin) {
+        // Placeholder for dynamic badge updates
+        console.log(`Status badges updated for role: ${role}, admin: ${isAdmin}`);
+    }
+
+    /**
      * Dynamically populates filters based on current property data
      */
     function populateDynamicFilters() {
@@ -1732,6 +1756,11 @@ function clearActiveSession() {
             restoreBtn();
             droppedFile = null;
             renderLandlordProperties();
+        } catch (err) {
+            console.error("Upload failed:", err);
+            showToast("Failed to publish listing.", "error");
+            restoreBtn();
+        }
         });
     }
 
