@@ -1008,29 +1008,48 @@ function clearActiveSession() {
         try {
             const userQ = query(collection(db, "users"), where("email", "==", email));
             const userSnap = await getDocs(userQ);
-            
-            if (!userSnap.empty) {
-                const userId = userSnap.docs[0].id;
-                const updateData = { isApproved: true };
-                
-                if (role === 'seeker') {
-                    // Set expiry to 24 hours from now
-                    const expiry = new Date();
-                    expiry.setHours(expiry.getHours() + 24);
-                    updateData.expiryTimestamp = expiry;
-                }
 
-                await updateDoc(doc(db, "users", userId), updateData);
-                await deleteDoc(doc(db, "payments", email));
-                showToast(`Approved ${email} as ${role}`, "success");
-                renderAdminPayments();
-                await saveUsers();
+            if (userSnap.empty) return;
+
+            const userId = userSnap.docs[0].id;
+
+            const updateData = {
+                isApproved: true
+            };
+
+            // Ensure correct role is stored (so login gating works immediately)
+            if (role && role !== '-') updateData.role = role;
+
+            if (role === 'seeker') {
+                const expiry = new Date();
+                expiry.setHours(expiry.getHours() + 24);
+                updateData.expiryTimestamp = expiry;
             }
+
+            // Clear “payment initiated” lightweight flags so user isn't stuck in pending UI
+            updateData.paymentInitiated = false;
+            updateData.paymentRole = deleteField();
+            updateData.paymentPhone = deleteField();
+            updateData.paymentInitiatedAt = deleteField();
+            
+            await updateDoc(doc(db, "users", userId), updateData);
+
+            // Delete real payment doc if present
+            try {
+                await deleteDoc(doc(db, "payments", email));
+            } catch (e) {
+                // ignore if missing
+            }
+
+            showToast(`Approved ${email} as ${role}`, "success");
+            renderAdminPayments();
+            await saveUsers();
         } catch (err) {
             console.error(err);
             showToast("Approval failed.", "error");
         }
     }
+
 
     /**
      * Central login processor
@@ -1196,8 +1215,18 @@ function clearActiveSession() {
             } else {
                 seekerDashboard.classList.remove('hidden');
                 renderSampleProperties();
-                startSessionTimer(email, 18 * 60 * 60, false, 'seeker');
+
+                // Seeker access expiry is stored in users.expiryTimestamp (admin approval grants 24h)
+                let secondsLeft = 24 * 60 * 60;
+                if (user && user.expiryTimestamp && typeof user.expiryTimestamp.toDate === 'function') {
+                    const expiry = user.expiryTimestamp.toDate();
+                    secondsLeft = Math.floor((expiry.getTime() - Date.now()) / 1000);
+                    if (secondsLeft < 0) secondsLeft = 0;
+                }
+
+                startSessionTimer(email, secondsLeft, false, 'seeker');
             }
+
             
             restoreBtn();
             console.log("Standard login sequence finished successfully.");
